@@ -11,9 +11,9 @@ import "./interfaces/IMarketVault.sol";
 
 // All floats come multiplied by 10^6
 struct DataTransportObject {
-    int256 latitude;
-    int256 longitude;
-    uint256 fire;
+    int256 latitude;    // Multiplied by 10^6
+    int256 longitude;   // Multiplied by 10^6
+    uint256 fire;      // 1 or 0
 }
 
 /**

@@ -1,107 +1,64 @@
-# Flare Hardhat Starter Kit
+# Ember Shield API
 
-This is a starter kit for interacting with Flare blockchain.
-It provides example code for interacting with enshrined Flare protocol, and useful deployed contracts.
-It also demonstrates, how the official Flare smart contract periphery [package](https://www.npmjs.com/package/@flarenetwork/flare-periphery-contracts) can be used in your projects.
+A simple API that checks for fire detection at specified locations using NASA FIRMS data.
 
-## Getting started
+## Environment Variables
 
-If you are new to Hardhat please check the [Hardhat getting started doc](https://hardhat.org/hardhat-runner/docs/getting-started#overview)
-
-1. Clone and install dependencies:
-
-   ```console
-   git clone https://github.com/flare-foundation/flare-hardhat-starter.git
-   cd flare-hardhat-starter
-   ```
-
-   and then run:
-
-   ```console
-   yarn
-   ```
-
-   or
-
-   ```console
-   npm install
-   ```
-
-2. Set up `.env` file
-
-   ```console
-   mv .env.example .env
-   ```
-
-3. Change the `PRIVATE_KEY` in the `.env` file to yours
-
-4. Compile the project
-
-   ```console
-   yarn hardhat compile
-   ```
-
-   or
-
-   ```console
-   npx hardhat compile
-   ```
-
-   This will compile all `.sol` files in your `/contracts` folder.
-   It will also generate artifacts that will be needed for testing.
-   Contracts `Imports.sol` import MockContracts and Flare related mocks, thus enabling mocking of the contracts from typescript.
-
-5. Run Tests
-
-   ```console
-   yarn hardhat test
-   ```
-
-   or
-
-   ```console
-   npx hardhat test
-   ```
-
-6. Deploy
-
-   Check the `hardhat.config.ts` file, where you define which networks you want to interact with.
-   Flare mainnet & test network details are already added in that file.
-
-   Make sure that you have added API Keys in the `.env` file
-
-   ```console
-   npx hardhat run scripts/tryDeployment.ts
-   ```
-
-## Repository structure
-
+Create a `.env` file with:
 ```
-├── contracts: Solidity smart contracts
-├── scripts: Typescript scripts that interact with the blockchain
-├── test
-├── hardhat.config.ts
-├── package.json
-├── README.md
-├── tsconfig.json
-└── yarn.lock
+NASA_FIRMS_API_KEY=your_api_key_here
+PORT=3000 # Optional, defaults to 3000
 ```
 
-## Clean repository
+## Local Development
 
-If you want to start building your projects from a repository that is already setup to work with Flare correctly, but you do not want to keep any of the examples, these are the files you should delete:
-
-- all files in the `contracts/` folder
-- all files in the `scripts/` folder, except for the `scripts/fdcExample/Base.ts` which might come in useful
-
-A shell command that does this is:
-
-```sh
-rm -rf contracts/* & mv scripts/fdcExample/Base.ts ./Base.ts & rm -rf scripts/* & mv ./Base.ts scripts/Base.ts
+1. Install dependencies:
+```bash
+npm install
 ```
 
-## Resources
+2. Run the server:
+```bash
+npm run dev
+```
 
-- [Flare Developer Hub](https://dev.flare.network/)
-- [Hardhat Guides](https://dev.flare.network/fdc/guides/hardhat)
-- [Hardhat Docs](https://hardhat.org/docs)
+## API Endpoints
+
+### GET /health
+Health check endpoint.
+
+Response:
+```json
+{
+  "status": "ok"
+}
+```
+
+### GET /check-fire
+Check for fires at a location.
+
+Query Parameters:
+- `address` (optional): The address to check. Defaults to Golden Gate Park if not provided.
+
+Example:
+```
+GET /check-fire?address=123 Main St, San Francisco, CA
+```
+
+Response:
+```json
+{
+  "latitude": 37.7694208,
+  "longitude": -122.4539027,
+  "fire_detected": 0
+}
+```
+
+## Railway Deployment
+
+1. Create a new project on [Railway](https://railway.app)
+2. Connect your GitHub repository
+3. Add the required environment variables in Railway dashboard
+4. Deploy!
+
+The API will be automatically deployed when you push changes to your repository.
