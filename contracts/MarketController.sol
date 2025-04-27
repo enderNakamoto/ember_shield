@@ -3,9 +3,18 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IJsonApi} from "@flarenetwork/flare-periphery-contracts/coston/IJsonApi.sol";
+import {ContractRegistry} from "@flarenetwork/flare-periphery-contracts/coston/ContractRegistry.sol";
 import "./interfaces/IMarketController.sol";
 import "./interfaces/IMarketFactory.sol";
 import "./interfaces/IMarketVault.sol";
+
+// All floats come multiplied by 10^6
+struct DataTransportObject {
+    int256 latitude;
+    int256 longitude;
+    uint256 fire;
+}
 
 /**
  * @title MarketController
@@ -164,20 +173,28 @@ contract MarketController is IMarketController, Ownable {
     /**
      * @notice Processes oracle data and triggers liquidation or maturation if needed
      * @param marketId The ID of the market
-     * @param currentPrice The current price from the oracle
-     * @param timestamp The timestamp of the oracle data
+     * @param proof The proof of the oracle data
      */
     function processOracleData(
         uint256 marketId,
-        uint256 currentPrice,
-        uint256 timestamp
-    ) external marketFactoryMustBeSet {
+        IJsonApi.Proof calldata proof
+    ) public marketFactoryMustBeSet {
+
+        // get market details stored in the contract
         MarketState currentState = _marketStates[marketId];
         MarketDetails storage details = _marketDetails[marketId];
 
+        // validate the proof
+        require(isJsonApiProofValid(proof), "Invalid proof");
+
+        // decode the incoming data
+        DataTransportObject memory dto = abi.decode(proof.data.responseBody.abi_encoded_data, (DataTransportObject));
+
         // Handle liquidation case
         if (
-            currentPrice < details.triggerPrice &&
+            dto.latitude == details.latitude && 
+            dto.longitude == details.longitude &&
+            dto.fire > 0 &&
             currentState == MarketState.Locked &&
             block.timestamp >= details.eventStartTime &&
             block.timestamp <= details.eventEndTime
@@ -450,5 +467,9 @@ contract MarketController is IMarketController, Ownable {
     // Check if the market has been initialized by checking non-default values
     function marketExists(uint256 marketId) external view returns (bool) {
         return _marketDetails[marketId].eventEndTime != 0;
+    }
+
+    function isJsonApiProofValid(IJsonApi.Proof calldata _proof) private view returns (bool) {
+        return ContractRegistry.auxiliaryGetIJsonApiVerification().verifyJsonApi(_proof);
     }
 }

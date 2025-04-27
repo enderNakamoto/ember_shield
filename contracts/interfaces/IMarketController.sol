@@ -13,7 +13,8 @@ interface IMarketController {
     struct MarketDetails {
         uint256 eventStartTime; // Timestamp when the event starts
         uint256 eventEndTime; // Timestamp when the event ends
-        uint256 triggerPrice; // Price at which liquidation is triggered
+        int256 latitude; // Latitude of the covered house
+        int256 longitude; // Longitude of the covered house
         bool hasLiquidated; // Flag to track if market has ever been liquidated
         uint256 liquidationTime; // Timestamp when the liquidation occurred (default if not)
     }
