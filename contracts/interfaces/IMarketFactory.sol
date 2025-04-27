@@ -5,7 +5,8 @@ interface IMarketFactory {
     function createMarketVaultsByController(
         uint256 eventStartTime,
         uint256 eventEndTime,
-        uint256 triggerPrice
+        int256 latitude,
+        int256 longitude
     )
         external
         returns (uint256 marketId, address riskVault, address hedgeVault);

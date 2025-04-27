@@ -26,21 +26,11 @@ contract MarketFactory is IMarketFactory, Ownable {
     // Mapping from market ID to market vaults
     mapping(uint256 => MarketVaults) private _marketVaults;
 
-    // Events
-    event MarketVaultsCreated(
-        uint256 indexed marketId,
-        address indexed riskVault,
-        address indexed hedgeVault,
-        uint256 eventStartTime,
-        uint256 eventEndTime,
-        uint256 triggerPrice
-    );
-
     // Errors
     error OnlyController();
     error VaultsNotFound();
     error InvalidTimeParameters();
-    error InvalidTriggerPrice();
+    error InvalidCoordinates();
 
     // Modifiers
     modifier onlyController() {
@@ -73,7 +63,8 @@ contract MarketFactory is IMarketFactory, Ownable {
     function createMarketVaultsByController(
         uint256 eventStartTime,
         uint256 eventEndTime,
-        uint256 triggerPrice
+        int256 latitude,
+        int256 longitude
     )
         external
         override
@@ -86,8 +77,8 @@ contract MarketFactory is IMarketFactory, Ownable {
         ) {
             revert InvalidTimeParameters();
         }
-        if (triggerPrice == 0) {
-            revert InvalidTriggerPrice();
+        if (latitude == 0 || longitude == 0) {
+            revert InvalidCoordinates();
         }
 
         // Assign market ID
@@ -114,29 +105,6 @@ contract MarketFactory is IMarketFactory, Ownable {
             riskVault: riskVault,
             hedgeVault: hedgeVault
         });
-
-        // Notify the controller about the new market with timing parameters
-        try
-            IMarketController(controller).notifyMarketCreated(
-                marketId,
-                eventStartTime,
-                eventEndTime,
-                triggerPrice
-            )
-        {} catch {
-            // We don't want to revert the market creation if the controller notification fails
-            // But we log it as an event
-            emit ControllerNotificationFailed(marketId);
-        }
-
-        emit MarketVaultsCreated(
-            marketId,
-            riskVault,
-            hedgeVault,
-            eventStartTime,
-            eventEndTime,
-            triggerPrice
-        );
 
         return (marketId, riskVault, hedgeVault);
     }
@@ -172,7 +140,4 @@ contract MarketFactory is IMarketFactory, Ownable {
     function getController() external view override returns (address) {
         return controller;
     }
-
-    // Event for controller notification failure
-    event ControllerNotificationFailed(uint256 indexed marketId);
 }

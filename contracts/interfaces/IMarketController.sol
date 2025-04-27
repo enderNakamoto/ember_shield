@@ -23,9 +23,7 @@ interface IMarketController {
         uint256 eventStartTime,
         uint256 eventEndTime,
         uint256 triggerPrice
-    )
-        external
-        returns (uint256 marketId, address riskVault, address hedgeVault);
+    ) external returns (uint256 marketId, address riskVault, address hedgeVault);
 
     function isDepositAllowed(uint256 marketId) external view returns (bool);
 
@@ -39,28 +37,9 @@ interface IMarketController {
 
     function getMarketFactory() external view returns (address);
 
-    function getMarketState(
-        uint256 marketId
-    ) external view returns (MarketState);
+    function getMarketState(uint256 marketId) external view returns (MarketState);
 
-    function getLiquidationState(
-        uint256 marketId
-    ) external view returns (bool hasLiquidated, uint256 liquidationTime);
+    function getLiquidationState(uint256 marketId) external view returns (bool hasLiquidated, uint256 liquidationTime);
 
     function marketExists(uint256 marketId) external view returns (bool);
-
-    function getMarketTiming(
-        uint256 marketId
-    ) external view returns (uint256 startTime, uint256 endTime);
-
-    function getMarketTriggerPrice(
-        uint256 marketId
-    ) external view returns (uint256);
-
-    function notifyMarketCreated(
-        uint256 marketId,
-        uint256 eventStartTime,
-        uint256 eventEndTime,
-        uint256 triggerPrice
-    ) external;
 }

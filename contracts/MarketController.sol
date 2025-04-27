@@ -28,57 +28,15 @@ contract MarketController is IMarketController, Ownable {
     mapping(uint256 => MarketState) private _marketStates;
     mapping(uint256 => MarketDetails) private _marketDetails;
 
-    // Events
-    event MarketStateChanged(uint256 indexed marketId, MarketState state);
-    event MarketLiquidated(uint256 indexed marketId);
-    event MarketMatured(uint256 indexed marketId);
-    event MarketCreated(
-        uint256 indexed marketId,
-        uint256 eventStartTime,
-        uint256 eventEndTime,
-        uint256 triggerPrice
-    );
-    event MarketFactorySet(address indexed marketFactory);
-    event OracleDataProcessed(
-        uint256 indexed marketId,
-        uint256 price,
-        uint256 timestamp
-    );
-    // Event for assets transfer failure
-    event AssetsTransferFailed(uint256 indexed marketId);
-    // Event for assets transfer failure
-    event AssetsTransferSucceeded(uint256 indexed marketId);
-
     // Errors
-    error DepositNotAllowed(uint256 marketId, MarketState state);
-    error WithdrawNotAllowed(uint256 marketId, MarketState state);
-    error InvalidStateTransition(
-        uint256 marketId,
-        MarketState currentState,
-        MarketState newState
-    );
-    error EventNotStartedYet(
-        uint256 marketId,
-        uint256 currentTime,
-        uint256 startTime
-    );
-    error EventNotEndedYet(
-        uint256 marketId,
-        uint256 currentTime,
-        uint256 endTime
-    );
-    error EventAlreadyEnded(
-        uint256 marketId,
-        uint256 currentTime,
-        uint256 endTime
-    );
-    error MarketAlreadyLiquidated(uint256 marketId);
-    error PriceAboveTrigger(
-        uint256 marketId,
-        uint256 currentPrice,
-        uint256 triggerPrice
-    );
-    error InvalidOracleData(uint256 marketId);
+    error DepositNotAllowed();
+    error WithdrawNotAllowed();
+    error InvalidStateTransition();
+    error EventNotStartedYet();
+    error EventNotEndedYet();
+    error EventAlreadyEnded();
+    error MarketAlreadyLiquidated();
+    error InvalidOracleData();
     error MarketFactoryNotSet();
     error MarketFactoryAlreadySet();
     error TransferFailed();
@@ -94,7 +52,7 @@ contract MarketController is IMarketController, Ownable {
             _marketStates[marketId] == MarketState.Liquidated ||
             _marketDetails[marketId].hasLiquidated
         ) {
-            revert MarketAlreadyLiquidated(marketId);
+            revert MarketAlreadyLiquidated();
         }
         _;
     }
@@ -114,21 +72,6 @@ contract MarketController is IMarketController, Ownable {
         }
         require(factoryAddress != address(0), "Invalid factory address");
         marketFactory = IMarketFactory(factoryAddress);
-        emit MarketFactorySet(factoryAddress);
-    }
-
-    function notifyMarketCreated(
-        uint256 marketId,
-        uint256 eventStartTime,
-        uint256 eventEndTime,
-        uint256 triggerPrice
-    ) external {
-        // Only MarketFactory should be able to call this
-        require(
-            msg.sender == address(marketFactory),
-            "Only MarketFactory can call this"
-        );
-        _marketCreated(marketId, eventStartTime, eventEndTime, triggerPrice);
     }
 
     /**
@@ -141,33 +84,20 @@ contract MarketController is IMarketController, Ownable {
 
         // Only allow transitioning from Open to Locked
         if (currentState != MarketState.Open) {
-            revert InvalidStateTransition(
-                marketId,
-                currentState,
-                MarketState.Locked
-            );
+            revert InvalidStateTransition();
         }
 
         // Check if the event start time has been reached
         if (block.timestamp < details.eventStartTime) {
-            revert EventNotStartedYet(
-                marketId,
-                block.timestamp,
-                details.eventStartTime
-            );
+            revert EventNotStartedYet();
         }
 
         // Check if the event end time has not passed
         if (block.timestamp > details.eventEndTime) {
-            revert EventAlreadyEnded(
-                marketId,
-                block.timestamp,
-                details.eventEndTime
-            );
+            revert EventAlreadyEnded();
         }
 
         _marketStates[marketId] = MarketState.Locked;
-        emit MarketStateChanged(marketId, MarketState.Locked);
     }
 
     /**
@@ -209,8 +139,6 @@ contract MarketController is IMarketController, Ownable {
         ) {
             matureMarket(marketId);
         }
-
-        emit OracleDataProcessed(marketId, currentPrice, timestamp);
     }
 
     /**
@@ -231,11 +159,9 @@ contract MarketController is IMarketController, Ownable {
         if (riskAssets > 0) {
             try IMarketVault(riskVault).transferAssets(hedgeVault, riskAssets) {
                 // Transfer succeeded
-                emit AssetsTransferSucceeded(marketId);
             } catch {
                 // Transfer failed, but we still want to liquidate the market
                 // Log a warning but don't revert
-                emit AssetsTransferFailed(marketId);
             }
         }
 
@@ -244,9 +170,6 @@ contract MarketController is IMarketController, Ownable {
         // Set the liquidation flag
         details.hasLiquidated = true;
         details.liquidationTime = block.timestamp;
-
-        emit MarketStateChanged(marketId, MarketState.Liquidated);
-        emit MarketLiquidated(marketId);
     }
 
     // Check if deposit is allowed for a market
@@ -268,7 +191,7 @@ contract MarketController is IMarketController, Ownable {
     function checkDepositAllowed(uint256 marketId) external view {
         MarketState state = _marketStates[marketId];
         if (!(state == MarketState.Open)) {
-            revert DepositNotAllowed(marketId, state);
+            revert DepositNotAllowed();
         }
     }
 
@@ -280,7 +203,7 @@ contract MarketController is IMarketController, Ownable {
                 state == MarketState.Matured ||
                 state == MarketState.Liquidated)
         ) {
-            revert WithdrawNotAllowed(marketId, state);
+            revert WithdrawNotAllowed();
         }
     }
 
@@ -297,19 +220,11 @@ contract MarketController is IMarketController, Ownable {
         // 1. The market is locked
         // 2. The event has ended
         if (currentState != MarketState.Locked) {
-            revert InvalidStateTransition(
-                marketId,
-                currentState,
-                MarketState.Matured
-            );
+            revert InvalidStateTransition();
         }
 
         if (block.timestamp < details.eventEndTime) {
-            revert EventNotEndedYet(
-                marketId,
-                block.timestamp,
-                details.eventEndTime
-            );
+            revert EventNotEndedYet();
         }
 
         // Get total assets in Hedge Vault
@@ -323,100 +238,24 @@ contract MarketController is IMarketController, Ownable {
                 IMarketVault(hedgeVault).transferAssets(riskVault, hedgeAssets)
             {
                 // Transfer succeeded
-                emit AssetsTransferSucceeded(marketId);
             } catch {
                 // Transfer failed, but we still want to mature the market
                 // Log a warning but don't revert
-                emit AssetsTransferFailed(marketId);
             }
         }
 
         // Update market state to Matured
         _marketStates[marketId] = MarketState.Matured;
+
         emit MarketStateChanged(marketId, MarketState.Matured);
-        emit MarketMatured(marketId);
-    }
-
-    // Internal implementation of marketCreated
-    function _marketCreated(
-        uint256 marketId,
-        uint256 eventStartTime,
-        uint256 eventEndTime,
-        uint256 triggerPrice
-    ) internal {
-        // Validate parameters
-        require(
-            eventStartTime > block.timestamp,
-            "Event start time must be in the future"
-        );
-        require(
-            eventEndTime > eventStartTime,
-            "Event end time must be after start time"
-        );
-        require(triggerPrice > 0, "Trigger price must be greater than zero");
-
-        // Store details information
-        _marketDetails[marketId] = MarketDetails({
-            eventStartTime: eventStartTime,
-            eventEndTime: eventEndTime,
-            triggerPrice: triggerPrice,
-            hasLiquidated: false,
-            liquidationTime: 0
-        });
-
-        // Set initial state to Open
-        _marketStates[marketId] = MarketState.Open;
-        emit MarketStateChanged(marketId, MarketState.Open);
-        emit MarketCreated(
-            marketId,
-            eventStartTime,
-            eventEndTime,
-            triggerPrice
-        );
-    }
-
-    // For backward compatibility with existing tests
-    function marketCreated(
-        uint256 marketId,
-        uint256 eventStartTime,
-        uint256 eventEndTime
-    ) external {
-        // Only MarketFactory should be able to call this
-        require(
-            msg.sender == address(marketFactory),
-            "Only MarketFactory can call this"
-        );
-
-        // Use a default trigger price of 1000 (arbitrary value)
-        uint256 defaultTriggerPrice = 1000;
-        _marketCreated(
-            marketId,
-            eventStartTime,
-            eventEndTime,
-            defaultTriggerPrice
-        );
-    }
-
-    // Getter function for market timing information
-    function getMarketTiming(
-        uint256 marketId
-    ) external view returns (uint256 startTime, uint256 endTime) {
-        MarketDetails memory details = _marketDetails[marketId];
-        return (details.eventStartTime, details.eventEndTime);
-    }
-
-    // Getter function for market trigger price
-    function getMarketTriggerPrice(
-        uint256 marketId
-    ) external view returns (uint256) {
-        return _marketDetails[marketId].triggerPrice;
     }
 
     // Create a market with custom parameters through Controller
     function createMarket(
         uint256 eventStartTime,
         uint256 eventEndTime,
-        uint256 triggerPrice
+        int256 latitude,
+        int256 longitude
     )
         external
         marketFactoryMustBeSet
@@ -426,7 +265,8 @@ contract MarketController is IMarketController, Ownable {
             marketFactory.createMarketVaultsByController(
                 eventStartTime,
                 eventEndTime,
-                triggerPrice
+                latitude,
+                longitude
             );
     }
 
