@@ -2,12 +2,12 @@
   "name": "fire",
   "version": "1.0.0",
   "description": "Fire oracle API script",
-  "main": "server.js",
+  "main": "index.js",
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "author": "EW <ew@example.com>",
   "license": "MIT",
