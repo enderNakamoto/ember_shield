@@ -1,17 +1,22 @@
 {
-  "name": "ember-shield-api",
+  "name": "ember-shield",
   "version": "1.0.0",
-  "description": "Fire detection API for Ember Shield",
-  "main": "oracle_api/server.js",
-  "type": "module",
+  "description": "Ember Shield Smart Contracts",
   "scripts": {
-    "start": "node oracle_api/server.js",
-    "dev": "node oracle_api/server.js"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy.ts"
   },
-  "dependencies": {
-    "express": "^4.18.2",
-    "dotenv": "^16.4.1",
-    "axios": "^1.6.7",
-    "cors": "^2.8.5"
+  "devDependencies": {
+    "@flarenetwork/flare-periphery-contracts": "^0.1.23",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomiclabs/hardhat-truffle5": "^2.0.7",
+    "@nomiclabs/hardhat-web3": "^2.0.0",
+    "@openzeppelin/contracts": "^5.3.0",
+    "@typechain/truffle-v5": "^8.0.7",
+    "ethers": "^6.1.0",
+    "hardhat": "^2.19.4",
+    "typescript": "^5.3.3"
   }
 }

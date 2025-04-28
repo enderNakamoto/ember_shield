@@ -41,6 +41,9 @@ contract MarketController is IMarketController, Ownable {
     error MarketFactoryAlreadySet();
     error TransferFailed();
 
+    // Events
+    event MarketStateChanged(uint256 indexed marketId, MarketState newState);
+
     // Modifiers
     modifier marketFactoryMustBeSet() {
         if (address(marketFactory) == address(0)) revert MarketFactoryNotSet();
@@ -72,6 +75,47 @@ contract MarketController is IMarketController, Ownable {
         }
         require(factoryAddress != address(0), "Invalid factory address");
         marketFactory = IMarketFactory(factoryAddress);
+    }
+
+    /**
+     * @notice Creates a new market with the specified parameters
+     * @param eventStartTime The timestamp when the event starts
+     * @param eventEndTime The timestamp when the event ends
+     * @param latitude The latitude coordinate (multiplied by 10^6)
+     * @param longitude The longitude coordinate (multiplied by 10^6)
+     * @return marketId The ID of the created market
+     * @return riskVault The address of the risk vault
+     * @return hedgeVault The address of the hedge vault
+     */
+    function createMarket(
+        uint256 eventStartTime,
+        uint256 eventEndTime,
+        int256 latitude,
+        int256 longitude
+    ) external override marketFactoryMustBeSet returns (uint256 marketId, address riskVault, address hedgeVault) {
+        require(latitude != 0 && longitude != 0, "Invalid coordinates");
+
+        // Create market vaults through factory
+        (marketId, riskVault, hedgeVault) = marketFactory.createMarketVaultsByController(
+            eventStartTime,
+            eventEndTime,
+            latitude,
+            longitude
+        );
+
+        // Initialize market state
+        _marketStates[marketId] = MarketState.Open;
+        _marketDetails[marketId] = MarketDetails({
+            eventStartTime: eventStartTime,
+            eventEndTime: eventEndTime,
+            latitude: latitude,
+            longitude: longitude,
+            hasLiquidated: false,
+            liquidationTime: 0
+        });
+
+        emit MarketStateChanged(marketId, MarketState.Open);
+        return (marketId, riskVault, hedgeVault);
     }
 
     /**
@@ -198,11 +242,7 @@ contract MarketController is IMarketController, Ownable {
     // Function to check withdraw permission and revert if not allowed
     function checkWithdrawAllowed(uint256 marketId) external view {
         MarketState state = _marketStates[marketId];
-        if (
-            !(state == MarketState.Open ||
-                state == MarketState.Matured ||
-                state == MarketState.Liquidated)
-        ) {
+        if (!(state == MarketState.Open || state == MarketState.Matured || state == MarketState.Liquidated)) {
             revert WithdrawNotAllowed();
         }
     }
@@ -250,26 +290,6 @@ contract MarketController is IMarketController, Ownable {
         emit MarketStateChanged(marketId, MarketState.Matured);
     }
 
-    // Create a market with custom parameters through Controller
-    function createMarket(
-        uint256 eventStartTime,
-        uint256 eventEndTime,
-        int256 latitude,
-        int256 longitude
-    )
-        external
-        marketFactoryMustBeSet
-        returns (uint256 marketId, address riskVault, address hedgeVault)
-    {
-        return
-            marketFactory.createMarketVaultsByController(
-                eventStartTime,
-                eventEndTime,
-                latitude,
-                longitude
-            );
-    }
-
     // Get vaults for a specific market
     function getMarketVaults(
         uint256 marketId
@@ -282,31 +302,41 @@ contract MarketController is IMarketController, Ownable {
         return marketFactory.getVaults(marketId);
     }
 
-    // Get market factory address
+    /**
+     * @notice Gets the market factory address
+     * @return The address of the market factory
+     */
     function getMarketFactory() external view returns (address) {
         return address(marketFactory);
     }
 
-    // Get current market state
-    function getMarketState(
-        uint256 marketId
-    ) external view returns (MarketState) {
+    /**
+     * @notice Gets the state of a market
+     * @param marketId The ID of the market
+     * @return The current state of the market
+     */
+    function getMarketState(uint256 marketId) external view returns (MarketState) {
         return _marketStates[marketId];
     }
 
-    // Get liquidation info
-    function getLiquidationState(
-        uint256 marketId
-    ) external view returns (bool hasLiquidated, uint256 liquidationTime) {
-        return (
-            _marketDetails[marketId].hasLiquidated,
-            _marketDetails[marketId].liquidationTime
-        );
+    /**
+     * @notice Gets the liquidation state of a market
+     * @param marketId The ID of the market
+     * @return hasLiquidated Whether the market has been liquidated
+     * @return liquidationTime The timestamp when liquidation occurred (0 if not liquidated)
+     */
+    function getLiquidationState(uint256 marketId) external view returns (bool hasLiquidated, uint256 liquidationTime) {
+        MarketDetails memory details = _marketDetails[marketId];
+        return (details.hasLiquidated, details.liquidationTime);
     }
 
-    // Check if the market has been initialized by checking non-default values
+    /**
+     * @notice Checks if a market exists
+     * @param marketId The ID of the market to check
+     * @return Whether the market exists
+     */
     function marketExists(uint256 marketId) external view returns (bool) {
-        return _marketDetails[marketId].eventEndTime != 0;
+        return _marketStates[marketId] != MarketState.NotSet;
     }
 
     function isJsonApiProofValid(IJsonApi.Proof calldata _proof) private view returns (bool) {

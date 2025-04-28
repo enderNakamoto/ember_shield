@@ -52,10 +52,11 @@ contract MarketFactory is IMarketFactory, Ownable {
     }
 
     /**
-     * @notice Creates market vaults with timing parameters and trigger price, invoked by controller
+     * @notice Creates market vaults with timing parameters and location coordinates, invoked by controller
      * @param eventStartTime The timestamp when the event starts
      * @param eventEndTime The timestamp when the event ends
-     * @param triggerPrice The price at which liquidation is triggered
+     * @param latitude The latitude coordinate of the location
+     * @param longitude The longitude coordinate of the location
      * @return marketId The ID of the created market
      * @return riskVault The address of the risk vault
      * @return hedgeVault The address of the hedge vault

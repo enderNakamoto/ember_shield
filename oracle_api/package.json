@@ -1,27 +1,17 @@
 {
-  "name": "fire",
+  "name": "ember-shield-oracle-api",
   "version": "1.0.0",
-  "description": "Fire oracle API script",
-  "main": "index.js",
+  "description": "Fire detection API for Ember Shield",
+  "main": "server.js",
   "type": "module",
-  "private": true,
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
-  "author": "EW <ew@example.com>",
-  "license": "MIT",
-  "keywords": [
-    "oracle",
-    "fire",
-    "location"
-  ],
   "dependencies": {
-    "@stellar/stellar-sdk": "^13.1.0",
-    "axios": "^1.8.4",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
     "express": "^4.18.2",
-    "node-cron": "^3.0.3"
+    "dotenv": "^16.4.1",
+    "axios": "^1.6.7",
+    "cors": "^2.8.5"
   }
 }
