@@ -135,6 +135,78 @@ npx hardhat run scripts/processOracleMock.ts --network coston2
 
 For more detailed instructions, see [scripts/README.md](scripts/README.md).
 
+## Testing Workflow
+
+Ember Shield contracts have been thoroughly tested using Hardhat's testing framework. Our test suite covers all critical aspects of the system:
+
+### Test Results
+
+```
+➜ npx hardhat test
+
+MarketController State Transitions
+  Market State Transitions
+    ✔ Should start in Open state
+    ✔ Should transition from Open to Locked
+    ✔ Should not allow locking before start time
+    ✔ Should not allow locking after end time
+    ✔ Should transition from Locked to Liquidated using test function
+    ✔ Should transition from Locked to Matured using test function
+    ✔ Should not allow liquidation before market is locked
+    ✔ Should not allow liquidation after event end time
+    ✔ Should not allow maturation before event end time
+    ✔ Should not allow maturation of already liquidated market
+    ✔ Should not allow double liquidation
+
+Market System Deployment and Creation
+  Contract Deployment
+    ✔ Should deploy all contracts with correct initialization
+  Market Creation
+    ✔ Should create a market with valid parameters
+    ✔ Should fail to create market with invalid time parameters
+    ✔ Should fail to create market with invalid coordinates
+    ✔ Should fail to create market if end time is before or equal to start time
+
+Market Vaults Operations
+  Vault Setup
+    ✔ Should have correct initial state
+  Deposits
+    ✔ Should allow deposits to risk vault
+    ✔ Should allow deposits to hedge vault
+    ✔ Should not allow deposits after market is locked
+  Withdrawals
+    ✔ Should allow withdrawals from risk vault when market is open
+    ✔ Should allow withdrawals from hedge vault when market is open
+    ✔ Should not allow withdrawals when market is locked
+
+23 passing
+```
+
+### Test Coverage
+
+Our test suite covers three main areas:
+
+1. **Market State Transitions**:
+   - Proper initialization in Open state
+   - Transitions between states (Open → Locked → Liquidated/Matured)
+   - State transition restrictions with appropriate checks for timing
+   - Prevention of invalid state transitions
+
+2. **System Deployment and Market Creation**:
+   - Contract deployment and initialization
+   - Market creation with valid parameters
+   - Validation checks for time parameters and coordinates
+   - Error handling for invalid market creation attempts
+
+3. **Vault Operations**:
+   - Initial vault setup and configuration
+   - Deposit functionality to both risk and hedge vaults
+   - Deposit restrictions after market locking
+   - Withdrawal functionality during the Open state
+   - Withdrawal restrictions during the Locked state
+
+The test suite ensures that all contract functions behave as expected across different market states and conditions, providing confidence in the security and reliability of the Ember Shield protocol.
+
 ## License
 
 MIT
