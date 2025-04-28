@@ -1,8 +1,39 @@
-# Ember Shield
+# 🔥 Ember Shield
 
-A decentralized fire insurance platform that uses smart contracts, deployed on the Flare network. The platform leverages Flare's Data Contract (FDC) and oracle capabilities to provide a trustless fire insurance solution.
+![alt text](images/cover.png)
 
-## Overview
+## Demo 
+https://ember-shield-git-main-enders-projects.vercel.app/
+
+
+
+## What We’re Building
+
+We’re building a **decentralized parametric fire insurance** solution on **Flare Network**, leveraging FDC’s JsonAPI attestation type and satellite data from NASA’s FRMS API. Our smart contracts and trusted oracles deliver **instant, transparent, and fair** payouts to communities in extreme wildfire zones—areas where traditional insurers have withdrawn.
+
+> **Hackathon MVP:** a proof-of-concept to showcase the flexibility and speed of our framework—not a finished product, but a glimpse of what’s coming.
+
+## Why It Matters
+
+We have family near Paradise, Northern California—the town destroyed by the 2018 fire. Properties in the region are tagged “Extreme Risk” with **9/10 Fire Factor™** and up to **48% wildfire probability** over 30 years.
+
+Here’s a map of all active fires in September 2024 across the continental US, during the LA fire events:
+
+![image info](images/fire_map.png)
+
+Traditional insurers are pulling out, premiums are soaring, and claims processes drag on. Communities are left vulnerable and frustrated. The tragic case of **Luigi Mangione**, who turned to violence over a denied claim in a different insurance vertical, highlights the **opaque and adversarial** nature of today’s industry. It’s clear: insurance needs a complete reset.
+
+## How It Works
+
+- **Blockchain Backbone:** Built on Flare Network for low-cost, scalable contracts  
+- **Real-Time Data:** FDC’s JsonAPI pulls wildfire metrics directly from NASA’s FRMS API  
+- **Trustless Verification:** Satellite-verified data feeds enforce on-chain triggers  
+- **Automated Payouts:** Claims settle the moment damage thresholds are met—no manual steps, no delays  
+
+By combining reliable oracle data with smart-contract automation, FireBastion turns a slow, opaque claims process into one that’s **data-driven and instant**—bringing fairness back to wildfire insurance.
+
+
+## Architecture
 
 Ember Shield creates fire insurance markets where users can deposit funds to either:
 1. Hedge against the risk of fire (receive payout if a fire occurs)
@@ -10,7 +41,9 @@ Ember Shield creates fire insurance markets where users can deposit funds to eit
 
 The platform uses Flare's decentralized oracle system to detect fires in specific locations and automatically trigger liquidations when fires are detected.
 
-## Key Components
+![Vault Architecture](images/architecture.png)
+
+
 
 ### Smart Contracts
 
@@ -27,6 +60,22 @@ Our fire detection API is deployed at `https://flarefire-production.up.railway.a
 2. `/check-fire` - Checks for fires using NASA FIRMS data for a given location
 3. `/check-fire-mock` - Mock endpoint that always returns a fire detected (for testing)
 
+### Mock API Response
+
+Our mock endpoint always returns the following data:
+
+```json
+{
+  "latitude": 37772760,
+  "longitude": -122454362,
+  "fire_detected": 1
+}
+```
+
+This guarantees that liquidation will occur when coordinates match, making it perfect for testing the full attestation flow on Coston2.
+
+![alt text](image.png)
+
 ### Flare Oracle Integration
 
 The system uses Flare's FDC (Flare Data Contract) to fetch and validate external data:
@@ -35,132 +84,323 @@ The system uses Flare's FDC (Flare Data Contract) to fetch and validate external
 2. Oracle validators verify the data and provide proofs
 3. Smart contracts validate these proofs and trigger liquidation if a fire is detected
 
-## Flare Data Contract (FDC) Integration
+#### Controller Contract 
+```
+ /**
+     * @notice Processes oracle data and triggers liquidation or maturation if needed
+     * @param marketId The ID of the market
+     * @param proof The proof of the oracle data
+     */
+    function processOracleData(
+        uint256 marketId,
+        IJsonApi.Proof calldata proof
+    ) public marketFactoryMustBeSet {
 
-Ember Shield leverages Flare's Data Contract system to provide secure and reliable fire detection data to the insurance protocol. Below is a detailed explanation of how this integration works:
+        // get market details stored in the contract
+        MarketState currentState = _marketStates[marketId];
+        MarketDetails storage details = _marketDetails[marketId];
 
-### Architecture Overview
+        // validate the proof
+        require(isJsonApiProofValid(proof), "Invalid proof");
+
+        // decode the incoming data
+        DataTransportObject memory dto = abi.decode(proof.data.responseBody.abi_encoded_data, (DataTransportObject));
+
+        // Handle liquidation case
+        if (
+            dto.latitude == details.latitude && 
+            dto.longitude == details.longitude &&
+            dto.fire > 0 &&
+            currentState == MarketState.Locked &&
+            block.timestamp >= details.eventStartTime &&
+            block.timestamp <= details.eventEndTime
+        ) {
+            _liquidateMarket(marketId);
+        }
+        // Handle maturation case - event ended without liquidation
+        else if (
+            currentState == MarketState.Locked &&
+            block.timestamp > details.eventEndTime &&
+            !details.hasLiquidated
+        ) {
+            matureMarket(marketId);
+        }
+    }
+ ```   
+
+This is called from FDC Attestation Script 
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│                 │    │                 │    │                 │
-│  Fire Detection │    │ Flare Verifier  │    │ Ember Shield   │
-│  API Server     │◄───┤ Service         │◄───┤ Contracts      │
-│                 │    │                 │    │                 │
-└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
-         │                      │                      │
-         ▼                      ▼                      ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│                 │    │                 │    │                 │
-│  NASA FIRMS     │    │ Flare FDC       │    │ Market          │
-│  Fire Data      │    │ Smart Contracts │    │ Liquidation     │
-│                 │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+mport { ethers } from "hardhat";
+import {
+  prepareAttestationRequestBase,
+  submitAttestationRequest,
+  retrieveDataAndProofBase,
+  sleep,
+} from "./fdcExample/Base";
+import fs from "fs";
+import path from "path";
+
+// Load deployed contract addresses
+let addresses: { 
+  marketController: string;
+  marketFactory: string;
+  mockERC20: string;
+};
+
+try {
+  const addressesPath = path.join(__dirname, "config", "addresses.json");
+  addresses = JSON.parse(fs.readFileSync(addressesPath, 'utf8'));
+} catch (error) {
+  console.error("Failed to load addresses from config file");
+  addresses = {
+    marketController: "YOUR_MARKET_CONTROLLER_ADDRESS", // Replace with your deployed address if not using our deploy script
+    marketFactory: "",
+    mockERC20: ""
+  };
+}
+
+const marketId = 0; // Replace with your market ID
+
+// Environment variables for FDC API
+const {
+  JQ_VERIFIER_URL_TESTNET,
+  JQ_VERIFIER_API_KEY_TESTNET,
+  COSTON2_DA_LAYER_URL,
+} = process.env;
+
+// JQ filter to process the API response
+const postprocessJq = `{
+  latitude: .latitude,
+  longitude: .longitude,
+  fire: .fire_detected
+}`;
+
+// ABI signature matching our DataTransportObject struct
+const abiSignature = `{
+  "components": [
+    {
+      "internalType": "int256",
+      "name": "latitude",
+      "type": "int256"
+    },
+    {
+      "internalType": "int256",
+      "name": "longitude",
+      "type": "int256"
+    },
+    {
+      "internalType": "uint256",
+      "name": "fire",
+      "type": "uint256"
+    }
+  ],
+  "internalType": "struct DataTransportObject",
+  "name": "dto",
+  "type": "tuple"
+}`;
+
+const attestationTypeBase = "IJsonApi";
+const sourceIdBase = "WEB2";
+const verifierUrlBase = JQ_VERIFIER_URL_TESTNET!;
+
+async function getMarket(controller: any, id: number) {
+  const details = await controller.getMarketDetails(id);
+  console.log("Market Details:", details, "\n");
+  return details;
+}
+
+async function prepareUrl(market: any): Promise<string> {
+  // Using the check-fire endpoint from our deployed API
+  return `https://flarefire-production.up.railway.app/check-fire?lat=${
+    market.latitude / 10 ** 6
+  }&lon=${market.longitude / 10 ** 6}`;
+}
+
+async function prepareAttestationRequest(
+  apiUrl: string,
+  postprocessJq: string,
+  abiSignature: string,
+) {
+  const requestBody = {
+    url: apiUrl,
+    postprocessJq,
+    abi_signature: abiSignature,
+  };
+
+  const url = `${verifierUrlBase}JsonApi/prepareRequest`;
+  const apiKey = JQ_VERIFIER_API_KEY_TESTNET!;
+
+  return await prepareAttestationRequestBase(
+    url,
+    apiKey,
+    attestationTypeBase,
+    sourceIdBase,
+    requestBody,
+  );
+}
+
+async function retrieveDataAndProof(
+  abiEncodedRequest: string,
+  roundId: number,
+) {
+  const url = `${COSTON2_DA_LAYER_URL}api/v1/fdc/proof-by-request-round-raw`;
+  console.log("Url:", url, "\n");
+  return await retrieveDataAndProofBase(url, abiEncodedRequest, roundId);
+}
+
+async function processOracleData(
+  controller: any,
+  id: number,
+  proof: {
+    proof: string;
+    response_hex: string;
+  },
+) {
+  console.log("Proof hex:", proof.response_hex, "\n");
+  
+  try {
+    // Decode the response directly using ethers
+    // For our simple mock implementation, we'll skip complex decoding
+    console.log("Preparing to call processOracleData...\n");
+    
+    // Retry mechanism for processing oracle data
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        const transaction = await controller.processOracleData(id, {
+          merkleProof: proof.proof,
+          data: proof.response_hex, // In a real implementation, this would be properly decoded
+        });
+        console.log("Transaction:", transaction.hash, "\n");
+        await transaction.wait();
+        console.log("Transaction confirmed\n");
+        return;
+      } catch (error) {
+        console.error(`Attempt ${attempt} failed:`, error, "\n");
+        await sleep(20000);
+      }
+    }
+    
+    throw new Error("processOracleData failed after 5 attempts");
+  } catch (error) {
+    console.error("Failed to process oracle data:", error);
+    throw error;
+  }
+}
+
+async function main() {
+  console.log("Loading MarketController contract...");
+  const MarketController = await ethers.getContractFactory("MarketController");
+  const controller = await MarketController.attach(addresses.marketController);
+  console.log("MarketController loaded at:", addresses.marketController, "\n");
+
+  try {
+    const market = await getMarket(controller, marketId);
+    const apiUrl = await prepareUrl(market);
+    console.log("API URL:", apiUrl, "\n");
+
+    const data = await prepareAttestationRequest(
+      apiUrl,
+      postprocessJq,
+      abiSignature,
+    );
+    console.log("Data:", data, "\n");
+
+    const abiEncodedRequest = data.abiEncodedRequest;
+    const roundId = await submitAttestationRequest(abiEncodedRequest);
+    const proof = await retrieveDataAndProof(abiEncodedRequest, roundId);
+
+    await processOracleData(controller, marketId, proof);
+    
+    console.log("Oracle data processing complete!");
+  } catch (error) {
+    console.error("Error during oracle data processing:", error);
+    throw error;
+  }
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  }); 
+
+```
+## Hardhat Tests 
+
+Ember Shield contracts have been thoroughly tested using Hardhat's testing framework. Our test suite covers all critical aspects of the system:
+
+### Test Results
+
+```
+➜ npx hardhat test
+
+MarketController State Transitions
+  Market State Transitions
+    ✔ Should start in Open state
+    ✔ Should transition from Open to Locked
+    ✔ Should not allow locking before start time
+    ✔ Should not allow locking after end time
+    ✔ Should transition from Locked to Liquidated using test function
+    ✔ Should transition from Locked to Matured using test function
+    ✔ Should not allow liquidation before market is locked
+    ✔ Should not allow liquidation after event end time
+    ✔ Should not allow maturation before event end time
+    ✔ Should not allow maturation of already liquidated market
+    ✔ Should not allow double liquidation
+
+Market System Deployment and Creation
+  Contract Deployment
+    ✔ Should deploy all contracts with correct initialization
+  Market Creation
+    ✔ Should create a market with valid parameters
+    ✔ Should fail to create market with invalid time parameters
+    ✔ Should fail to create market with invalid coordinates
+    ✔ Should fail to create market if end time is before or equal to start time
+
+Market Vaults Operations
+  Vault Setup
+    ✔ Should have correct initial state
+  Deposits
+    ✔ Should allow deposits to risk vault
+    ✔ Should allow deposits to hedge vault
+    ✔ Should not allow deposits after market is locked
+  Withdrawals
+    ✔ Should allow withdrawals from risk vault when market is open
+    ✔ Should allow withdrawals from hedge vault when market is open
+    ✔ Should not allow withdrawals when market is locked
+
+23 passing
 ```
 
-### FDC Attestation Flow
+### Test Coverage
 
-```
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
-│          │     │          │     │          │     │          │     │          │
-│ Insurance│     │ Market   │     │  FDC     │     │  API     │     │  NASA    │
-│ Contract │     │Controller│     │ Contract │     │ Server   │     │  FIRMS   │
-│          │     │          │     │          │     │          │     │          │
-└────┬─────┘     └────┬─────┘     └────┬─────┘     └────┬─────┘     └────┬─────┘
-     │                │                │                │                │
-     │   1. Request   │                │                │                │
-     │   liquidation  │                │                │                │
-     │────────────────>                │                │                │
-     │                │                │                │                │
-     │                │  2. Request    │                │                │
-     │                │  attestation   │                │                │
-     │                │───────────────>│                │                │
-     │                │                │                │                │
-     │                │                │ 3. Query data  │                │
-     │                │                │───────────────>│                │
-     │                │                │                │                │
-     │                │                │                │ 4. Fetch fire  │
-     │                │                │                │    data        │
-     │                │                │                │───────────────>│
-     │                │                │                │                │
-     │                │                │                │ 5. Return fire │
-     │                │                │                │    data        │
-     │                │                │                │<───────────────│
-     │                │                │                │                │
-     │                │                │ 6. Format &    │                │
-     │                │                │    return data │                │
-     │                │                │<───────────────│                │
-     │                │                │                │                │
-     │                │ 7. Generate    │                │                │
-     │                │ Merkle proof   │                │                │
-     │                │<───────────────│                │                │
-     │                │                │                │                │
-     │ 8. Process data│                │                │                │
-     │ & liquidate    │                │                │                │
-     │<───────────────│                │                │                │
-     │                │                │                │                │
-```
+Our test suite covers three main areas:
 
-### Detailed Process
+1. **Market State Transitions**:
+   - Proper initialization in Open state
+   - Transitions between states (Open → Locked → Liquidated/Matured)
+   - State transition restrictions with appropriate checks for timing
+   - Prevention of invalid state transitions
 
-1. **Data Request Initiation**:
-   - The `MarketController` contract initiates a data request to the Flare Data Contract (FDC)
-   - The request includes location coordinates (latitude/longitude) and desired timestamp
+2. **System Deployment and Market Creation**:
+   - Contract deployment and initialization
+   - Market creation with valid parameters
+   - Validation checks for time parameters and coordinates
+   - Error handling for invalid market creation attempts
 
-2. **FDC Attestation Process**:
-   - The FDC system forwards the request to multiple verifier nodes
-   - Each verifier independently queries our Fire Detection API
-   - Verifiers validate the data returned from the API
-   - Once consensus is reached, a Merkle proof is generated
+3. **Vault Operations**:
+   - Initial vault setup and configuration
+   - Deposit functionality to both risk and hedge vaults
+   - Deposit restrictions after market locking
+   - Withdrawal functionality during the Open state
+   - Withdrawal restrictions during the Locked state
 
-3. **Data Format**:
-   ```json
-   {
-     "sources": ["0x1234...5678"],
-     "requestBody": {
-       "url": "https://flarefire-production.up.railway.app/check-fire",
-       "abi_encoded_data": "0x000000000000000000000000000000000000000000000000000021fc51eb8500000000000000000000000000000000000000000000000000000021a390a3d60000"
-     },
-     "responseBody": {
-       "status_code": 200,
-       "headers": "",
-       "abi_encoded_data": "0x000000000000000000000000000000000000000000000000000021fc51eb8500000000000000000000000000000000000000000000000000000021a390a3d600000000000000000000000000000000000000000000000000000000000000000001"
-     },
-     "merkleProof": ["0xabcd...1234", "0x5678...9012"]
-   }
-   ```
+The test suite ensures that all contract functions behave as expected across different market states and conditions, providing confidence in the security and reliability of the Ember Shield protocol.
 
-4. **Verification & Liquidation**:
-   - The `MarketController.processOracleData()` function receives the attested data
-   - It verifies the Merkle proof against the FDC's state root
-   - The data is decoded to extract latitude, longitude, and fire detection status
-   - If a fire is detected at the specified coordinates, the market is liquidated
-   - Funds are transferred from Risk Vault to Hedge Vault
 
-### FDC Environment Requirements
-
-To fully integrate with Flare's FDC system, the following components must be configured:
-
-1. **Environment Variables**:
-   ```
-   FLARE_FDC_ADDRESS=0x1234...5678 # The address of the FDC contract
-   FLARE_VERIFIER_API_KEY=your-api-key # API key for the verifier service
-   ```
-
-2. **Verifier Registration**:
-   - The Fire Detection API must be registered with Flare's verifier network
-   - API endpoints must be whitelisted in the FDC registry
-
-3. **FDC Provider Configuration**:
-   ```typescript
-   const fdcClient = new FdcClient({
-     providerUrl: process.env.FLARE_PROVIDER_URL,
-     fdcContractAddress: process.env.FLARE_FDC_ADDRESS,
-     privateKey: process.env.PRIVATE_KEY
-   });
-   ```
-
-## Workflow Without FDC Attestation
+## Test Workflow Without FDC Attestation
 
 We've deployed and tested our contracts on the Coston2 network, using a simplified workflow that bypasses the actual FDC attestation process for testing purposes.
 
@@ -236,119 +476,8 @@ npx hardhat run scripts/processOracleMock.ts --network coston2
 
 For more detailed instructions, see [scripts/README.md](scripts/README.md).
 
-## Testing Workflow
-
-Ember Shield contracts have been thoroughly tested using Hardhat's testing framework. Our test suite covers all critical aspects of the system:
-
-### Test Results
-
-```
-➜ npx hardhat test
-
-MarketController State Transitions
-  Market State Transitions
-    ✔ Should start in Open state
-    ✔ Should transition from Open to Locked
-    ✔ Should not allow locking before start time
-    ✔ Should not allow locking after end time
-    ✔ Should transition from Locked to Liquidated using test function
-    ✔ Should transition from Locked to Matured using test function
-    ✔ Should not allow liquidation before market is locked
-    ✔ Should not allow liquidation after event end time
-    ✔ Should not allow maturation before event end time
-    ✔ Should not allow maturation of already liquidated market
-    ✔ Should not allow double liquidation
-
-Market System Deployment and Creation
-  Contract Deployment
-    ✔ Should deploy all contracts with correct initialization
-  Market Creation
-    ✔ Should create a market with valid parameters
-    ✔ Should fail to create market with invalid time parameters
-    ✔ Should fail to create market with invalid coordinates
-    ✔ Should fail to create market if end time is before or equal to start time
-
-Market Vaults Operations
-  Vault Setup
-    ✔ Should have correct initial state
-  Deposits
-    ✔ Should allow deposits to risk vault
-    ✔ Should allow deposits to hedge vault
-    ✔ Should not allow deposits after market is locked
-  Withdrawals
-    ✔ Should allow withdrawals from risk vault when market is open
-    ✔ Should allow withdrawals from hedge vault when market is open
-    ✔ Should not allow withdrawals when market is locked
-
-23 passing
-```
-
-### Test Coverage
-
-Our test suite covers three main areas:
-
-1. **Market State Transitions**:
-   - Proper initialization in Open state
-   - Transitions between states (Open → Locked → Liquidated/Matured)
-   - State transition restrictions with appropriate checks for timing
-   - Prevention of invalid state transitions
-
-2. **System Deployment and Market Creation**:
-   - Contract deployment and initialization
-   - Market creation with valid parameters
-   - Validation checks for time parameters and coordinates
-   - Error handling for invalid market creation attempts
-
-3. **Vault Operations**:
-   - Initial vault setup and configuration
-   - Deposit functionality to both risk and hedge vaults
-   - Deposit restrictions after market locking
-   - Withdrawal functionality during the Open state
-   - Withdrawal restrictions during the Locked state
-
-The test suite ensures that all contract functions behave as expected across different market states and conditions, providing confidence in the security and reliability of the Ember Shield protocol.
 
 ## Testing with Real FDC Attestation
-
-To fully test the Ember Shield platform with real FDC attestation on the Coston2 testnet, follow these steps:
-
-### 1. Deploy Contracts to Coston2
-
-First, deploy all contracts to the Coston2 testnet:
-
-```bash
-npx hardhat run scripts/deploy.ts --network coston2
-```
-
-This will deploy the `MockERC20`, `MarketController`, and `MarketFactory` contracts and save their addresses to `scripts/config/addresses.json`.
-
-### 2. Create a Market
-
-Create a market with appropriate time parameters and coordinates:
-
-```bash
-npx hardhat run scripts/createMarket.ts --network coston2
-```
-
-This will create a market and save its ID to `scripts/config/market.json`.
-
-### 3. Lock the Market
-
-After the market's start time has been reached, lock it:
-
-```bash
-npx hardhat run scripts/lockMarket.ts --network coston2
-```
-
-### 4. Process Mock Fire Data with FDC Attestation
-
-The most important step is to trigger liquidation with real FDC attestation:
-
-```bash
-npx hardhat run scripts/processOracleMock.ts --network coston2
-```
-
-This script:
 
 1. Calls our mock API endpoint at `https://flarefire-production.up.railway.app/check-fire-mock`
 2. The API always returns fire detected (`fire_detected: 1`) with predefined coordinates
@@ -359,24 +488,4 @@ This script:
 7. Calls `processOracleData()` with the verified proof
 8. The market is liquidated if the coordinates match
 
-### 5. Verify Liquidation
-
-Check that the market has been successfully liquidated:
-
-```bash
-npx hardhat run scripts/checkMarketState.ts --network coston2
-```
-
-### Mock API Response
-
-Our mock endpoint always returns the following data:
-
-```json
-{
-  "latitude": 37772760,
-  "longitude": -122454362,
-  "fire_detected": 1
-}
-```
-
-This guarantees that liquidation will occur when coordinates match, making it perfect for testing the full attestation flow on Coston2.
+Unfortunately I was not able to get it to work in time
