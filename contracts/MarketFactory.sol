@@ -26,11 +26,7 @@ contract MarketFactory is IMarketFactory, Ownable {
     // Mapping from market ID to market vaults
     mapping(uint256 => MarketVaults) private _marketVaults;
 
-    // Errors
-    error OnlyController();
-    error VaultsNotFound();
-    error InvalidTimeParameters();
-    error InvalidCoordinates();
+    // Custom errors are defined in IMarketFactory interface
 
     // Modifiers
     modifier onlyController() {

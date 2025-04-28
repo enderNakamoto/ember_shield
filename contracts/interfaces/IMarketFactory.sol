@@ -2,6 +2,12 @@
 pragma solidity ^0.8.20;
 
 interface IMarketFactory {
+    // Custom Errors
+    error OnlyController();
+    error VaultsNotFound();
+    error InvalidTimeParameters();
+    error InvalidCoordinates();
+
     function createMarketVaultsByController(
         uint256 eventStartTime,
         uint256 eventEndTime,

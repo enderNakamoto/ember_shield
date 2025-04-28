@@ -18,9 +18,9 @@ async function main() {
     const eventStartTime = now + (2 * 86400); // Start in 2 days
     const eventEndTime = now + (30 * 86400); // End in 30 days
 
-    // Set up coordinates (example: San Francisco)
-    const latitude = Math.floor(37.7749 * 1000000); // Convert to 6 decimal places
-    const longitude = Math.floor(-122.4194 * 1000000); // Keep negative for west longitude
+    // Set up coordinates (example: Tokyo)
+    const latitude = Math.floor(35.6762 * 1000000); // Convert to 6 decimal places
+    const longitude = Math.floor(139.6503 * 1000000); // East longitude (positive)
 
     console.log("\nCreating market with parameters:");
     console.log("Event Start Time:", new Date(eventStartTime * 1000).toLocaleString());

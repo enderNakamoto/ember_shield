@@ -148,7 +148,9 @@ const config: HardhatUserConfig = {
     artifacts: "./artifacts",
   },
   typechain: {
-    target: "truffle-v5",
+    target: "ethers-v6",
+    alwaysGenerateOverloads: false,
+    externalArtifacts: ["precompiles/*.json"],
   },
 };
 

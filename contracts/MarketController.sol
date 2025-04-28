@@ -40,6 +40,7 @@ contract MarketController is IMarketController, Ownable {
     error MarketFactoryNotSet();
     error MarketFactoryAlreadySet();
     error TransferFailed();
+    error InvalidCoordinates();
 
     // Events
     event MarketStateChanged(uint256 indexed marketId, MarketState newState);
@@ -93,7 +94,9 @@ contract MarketController is IMarketController, Ownable {
         int256 latitude,
         int256 longitude
     ) external override marketFactoryMustBeSet returns (uint256 marketId, address riskVault, address hedgeVault) {
-        require(latitude != 0 && longitude != 0, "Invalid coordinates");
+        if (latitude == 0 || longitude == 0) {
+            revert InvalidCoordinates();
+        }
 
         // Create market vaults through factory
         (marketId, riskVault, hedgeVault) = marketFactory.createMarketVaultsByController(
@@ -341,5 +344,36 @@ contract MarketController is IMarketController, Ownable {
 
     function isJsonApiProofValid(IJsonApi.Proof calldata _proof) private view returns (bool) {
         return ContractRegistry.auxiliaryGetIJsonApiVerification().verifyJsonApi(_proof);
+    }
+
+    /**
+     * @notice Test-only function to liquidate a market without oracle proof
+     * @param marketId The ID of the market to liquidate
+     */
+    function test_liquidateMarket(uint256 marketId) external {
+        MarketState currentState = _marketStates[marketId];
+        MarketDetails memory details = _marketDetails[marketId];
+
+        require(currentState == MarketState.Locked, "Market must be locked");
+        require(block.timestamp >= details.eventStartTime, "Event not started");
+        require(block.timestamp <= details.eventEndTime, "Event ended");
+
+        _liquidateMarket(marketId);
+    }
+
+    /**
+     * @notice Test-only function to mature a market without oracle proof
+     * @param marketId The ID of the market to mature
+     */
+    function test_matureMarket(uint256 marketId) external {
+        MarketState currentState = _marketStates[marketId];
+        MarketDetails memory details = _marketDetails[marketId];
+
+        require(currentState == MarketState.Locked, "Market must be locked");
+        require(block.timestamp > details.eventEndTime, "Event not ended");
+        require(!details.hasLiquidated, "Market already liquidated");
+
+        _marketStates[marketId] = MarketState.Matured;
+        emit MarketStateChanged(marketId, MarketState.Matured);
     }
 }
