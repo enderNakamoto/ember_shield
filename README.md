@@ -93,6 +93,10 @@ Our fire detection API is deployed at `https://flarefire-production.up.railway.a
 2. `/check-fire` - Checks for fires using NASA FIRMS data for a given location
 3. `/check-fire-mock` - Mock endpoint that always returns a fire detected (for testing)
 
+You can see it in action here: 
+
+https://flarefire-production.up.railway.app/check-fire?address=501%20Stanyan%20Street,%20San%20Francisco,%20CA%2094117
+
 ### Mock API Response
 
 Our mock endpoint always returns the following data:
