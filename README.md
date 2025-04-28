@@ -307,3 +307,76 @@ Our test suite covers three main areas:
    - Withdrawal restrictions during the Locked state
 
 The test suite ensures that all contract functions behave as expected across different market states and conditions, providing confidence in the security and reliability of the Ember Shield protocol.
+
+## Testing with Real FDC Attestation
+
+To fully test the Ember Shield platform with real FDC attestation on the Coston2 testnet, follow these steps:
+
+### 1. Deploy Contracts to Coston2
+
+First, deploy all contracts to the Coston2 testnet:
+
+```bash
+npx hardhat run scripts/deploy.ts --network coston2
+```
+
+This will deploy the `MockERC20`, `MarketController`, and `MarketFactory` contracts and save their addresses to `scripts/config/addresses.json`.
+
+### 2. Create a Market
+
+Create a market with appropriate time parameters and coordinates:
+
+```bash
+npx hardhat run scripts/createMarket.ts --network coston2
+```
+
+This will create a market and save its ID to `scripts/config/market.json`.
+
+### 3. Lock the Market
+
+After the market's start time has been reached, lock it:
+
+```bash
+npx hardhat run scripts/lockMarket.ts --network coston2
+```
+
+### 4. Process Mock Fire Data with FDC Attestation
+
+The most important step is to trigger liquidation with real FDC attestation:
+
+```bash
+npx hardhat run scripts/processOracleMock.ts --network coston2
+```
+
+This script:
+
+1. Calls our mock API endpoint at `https://flarefire-production.up.railway.app/check-fire-mock`
+2. The API always returns fire detected (`fire_detected: 1`) with predefined coordinates
+3. Prepares a proper FDC attestation request with this data
+4. Submits the request to FDC verifiers on Coston2
+5. Waits for attestation consensus (typically 3-4 minutes)
+6. Constructs a valid proof with Merkle verification
+7. Calls `processOracleData()` with the verified proof
+8. The market is liquidated if the coordinates match
+
+### 5. Verify Liquidation
+
+Check that the market has been successfully liquidated:
+
+```bash
+npx hardhat run scripts/checkMarketState.ts --network coston2
+```
+
+### Mock API Response
+
+Our mock endpoint always returns the following data:
+
+```json
+{
+  "latitude": 37772760,
+  "longitude": -122454362,
+  "fire_detected": 1
+}
+```
+
+This guarantees that liquidation will occur when coordinates match, making it perfect for testing the full attestation flow on Coston2.
