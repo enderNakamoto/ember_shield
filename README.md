@@ -1,88 +1,140 @@
-# Ember Shield API
+# Ember Shield
 
-A simple API that checks for fire detection at specified locations using NASA FIRMS data.
+A decentralized fire insurance platform that uses smart contracts, deployed on the Flare network. The platform leverages Flare's Data Contract (FDC) and oracle capabilities to provide a trustless fire insurance solution.
 
-## Environment Variables
+## Overview
 
-Create a `.env` file with:
-```
-NASA_FIRMS_API_KEY=your_api_key_here
-PORT=3000 # Optional, defaults to 3000
-```
+Ember Shield creates fire insurance markets where users can deposit funds to either:
+1. Hedge against the risk of fire (receive payout if a fire occurs)
+2. Earn yield by taking on risk (receive premium if no fire occurs)
 
-## Local Development
+The platform uses Flare's decentralized oracle system to detect fires in specific locations and automatically trigger liquidations when fires are detected.
 
-1. Install dependencies:
+## Key Components
+
+### Smart Contracts
+
+- **MarketController**: Manages market states and processes oracle data
+- **MarketFactory**: Creates market vaults
+- **RiskVault**: ERC4626 tokenized vault for risk-taking participants
+- **HedgeVault**: ERC4626 tokenized vault for hedging participants
+
+### Fire Detection API
+
+Our fire detection API is deployed at `https://flarefire-production.up.railway.app` with the following endpoints:
+
+1. `/health` - Health check endpoint
+2. `/check-fire` - Checks for fires using NASA FIRMS data for a given location
+3. `/check-fire-mock` - Mock endpoint that always returns a fire detected (for testing)
+
+### Flare Oracle Integration
+
+The system uses Flare's FDC (Flare Data Contract) to fetch and validate external data:
+
+1. FDC queries our API for fire detection data
+2. Oracle validators verify the data and provide proofs
+3. Smart contracts validate these proofs and trigger liquidation if a fire is detected
+
+## Workflow Without FDC Attestation
+
+We've deployed and tested our contracts on the Coston2 network, using a simplified workflow that bypasses the actual FDC attestation process for testing purposes.
+
+### Deployed Contracts (Coston2)
+
+- **MockERC20**: [0x9Ea879f767730F308061e48Df773EfBA48A92d95](https://coston2-explorer.flare.network/address/0x9Ea879f767730F308061e48Df773EfBA48A92d95)
+- **MarketController**: [0x2Ed1BD05E207BfB88CbCCC9cc4649d259CB17eA7](https://coston2-explorer.flare.network/address/0x2Ed1BD05E207BfB88CbCCC9cc4649d259CB17eA7)
+- **MarketFactory**: [0xE20AF7351322853B493a564c8D4E6d6c9cbFF0F6](https://coston2-explorer.flare.network/address/0xE20AF7351322853B493a564c8D4E6d6c9cbFF0F6)
+
+### Transaction Log
+
+1. **Contract Deployment**
+   - Deployed contracts with transaction: [0x3557effdb67081a8780dbe3ef8607df20c71bdabdff33bae1ada02ebf73b9ea0](https://coston2-explorer.flare.network/tx/0x3557effdb67081a8780dbe3ef8607df20c71bdabdff33bae1ada02ebf73b9ea0)
+
+2. **Market Creation**
+   - Created market with ID: 3
+   - Transaction: [0x3557effdb67081a8780dbe3ef8607df20c71bdabdff33bae1ada02ebf73b9ea0](https://coston2-explorer.flare.network/tx/0x3557effdb67081a8780dbe3ef8607df20c71bdabdff33bae1ada02ebf73b9ea0)
+   - Parameters:
+     - Start time: 10 seconds after creation
+     - End time: 5 days after creation
+     - Latitude: 35.6762° (Tokyo)
+     - Longitude: 139.6503° (Tokyo)
+
+3. **Market Locking**
+   - Successfully locked market ID: 3
+   - Transaction: [0x548f051b609109c939c0f91b2e1d002de828ff7bc2dc9b43fa95ce3a501d50ef](https://coston2-explorer.flare.network/tx/0x548f051b609109c939c0f91b2e1d002de828ff7bc2dc9b43fa95ce3a501d50ef)
+
+4. **Oracle Data Processing**
+   - Attempted to process fire detection data with mock proof
+   - The contract requires properly formatted data from Flare's actual FDC
+
+### Testing Notes
+
+Our tests confirm that the contract infrastructure works correctly through the following steps:
+
+1. **Deployment**: Successfully deployed all contracts with correct relationships
+2. **Market Creation**: Created markets with configurable parameters
+3. **Market Locking**: Successfully changed market state from Open to Locked
+4. **Liquidation Testing**: Partial success - contract validates that market is in the correct state
+
+For full integration with Flare's FDC system, we need:
+
+1. **Verifier Service Setup**:
+   - Environment variables for `JQ_VERIFIER_URL_TESTNET`, `JQ_VERIFIER_API_KEY_TESTNET`
+   - Access to Flare's verifier server at `https://jq-verifier-test.flare.rocks/JsonApi/prepareRequest`
+
+2. **Data Formatting**:
+   - Correct JQ filter to process API responses
+   - Proper ABI encoding of the DataTransportObject
+   - Valid signature for the encoded data struct
+
+3. **Merkle Proof Construction**:
+   - Creating valid merkle proofs that can be verified by the smart contract
+   - Testing with the Flare Data Layer API at `COSTON2_DA_LAYER_URL`
+
+## Development
+
+### Prerequisites
+
+- Node.js v16+
+- Hardhat
+- Access to Flare testnet (Coston2)
+
+### Installation
+
 ```bash
 npm install
 ```
 
-2. Run the server:
+### Local Testing
+
+We provide a complete workflow test script that deploys contracts, creates markets, and simulates fire detection:
+
 ```bash
-npm run dev
+npx hardhat run scripts/testWorkflow.ts --network localhost
 ```
 
-## API Endpoints
+### Deployment
 
-The API is deployed and available at: `https://flarefire-production.up.railway.app`
+Deploy to Coston2 testnet:
 
-### GET /health
-Health check endpoint to verify the API is running.
-
-Response:
-```json
-{
-  "status": "ok"
-}
-```
-
-### GET /check-fire
-Check for fires at a location using real NASA FIRMS data.
-
-Query Parameters:
-- `address` (optional): The address to check. Defaults to Golden Gate Park if not provided.
-
-Example:
-```
-GET /check-fire?address=123 Main St, San Francisco, CA
-```
-
-Response:
-```json
-{
-  "latitude": 37769420,    // Latitude * 1,000,000
-  "longitude": -122453902, // Longitude * 1,000,000
-  "fire_detected": 0       // 0 = no fire, 1 = fire detected
-}
-```
-
-### GET /check-fire-mock
-Mock endpoint that always returns the same coordinates with fire detected. Useful for testing and development.
-
-Response:
-```json
-{
-  "latitude": 37772760,    // Fixed latitude for testing
-  "longitude": -122454362, // Fixed longitude for testing
-  "fire_detected": 1       // Always returns fire detected
-}
-```
-
-## Railway Deployment
-
-The API is currently deployed on Railway at:
-```
-https://flarefire-production.up.railway.app
-```
-
-To deploy your own instance:
-1. Create a new project on [Railway](https://railway.app)
-2. Connect your GitHub repository
-3. Add the required environment variables in Railway dashboard
-4. Deploy using Railway CLI:
 ```bash
-cd oracle_api
-railway up
+npx hardhat run scripts/deploy.ts --network coston2
 ```
 
-The API will be automatically deployed when you push changes to your repository.
+## Testing Oracle Integration
+
+1. Create a market:
+```bash
+npx hardhat run scripts/createMarket.ts --network coston2
+```
+
+2. Test with mock fire data (always returns fire detected):
+```bash
+npx hardhat run scripts/processOracleMock.ts --network coston2
+```
+
+For more detailed instructions, see [scripts/README.md](scripts/README.md).
+
+## License
+
+MIT

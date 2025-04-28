@@ -1,101 +1,106 @@
 import { ethers } from "hardhat";
+import fs from "fs";
+import path from "path";
+
+// Load deployed contract addresses
+let addresses: { 
+  marketController: string;
+  marketFactory: string;
+  mockERC20: string;
+};
+
+try {
+  const addressesPath = path.join(__dirname, "config", "addresses.json");
+  addresses = JSON.parse(fs.readFileSync(addressesPath, 'utf8'));
+} catch (error) {
+  console.error("Failed to load addresses from config file");
+  addresses = {
+    marketController: "YOUR_MARKET_CONTROLLER_ADDRESS", // Replace with your deployed address if not using our deploy script
+    marketFactory: "",
+    mockERC20: ""
+  };
+}
 
 async function main() {
+  console.log("Loading contracts...");
+  const MarketController = await ethers.getContractFactory("MarketController");
+  const controller = await MarketController.attach(addresses.marketController);
+  console.log("MarketController loaded at:", addresses.marketController);
+
+  // Set up market times - use immediate start time for testing
+  const now = Math.floor(Date.now() / 1000);
+  const startTime = now + 10; // Start in just 10 seconds
+  const endTime = now + (5 * 86400); // End in 5 days
+  
+  // Using Tokyo coordinates (positive values)
+  const latitude = Math.floor(35.6762 * 1000000);  // Tokyo latitude
+  const longitude = Math.floor(139.6503 * 1000000); // Tokyo longitude
+
+  console.log(`Creating market with parameters:
+  - Start Time: ${new Date(startTime * 1000).toLocaleString()} (in 10 seconds)
+  - End Time: ${new Date(endTime * 1000).toLocaleString()}
+  - Latitude: ${latitude} (${latitude / 1000000})
+  - Longitude: ${longitude} (${longitude / 1000000})
+  `);
+
   try {
-    const [owner] = await ethers.getSigners();
-    console.log("Creating market with account:", owner.address);
-
-    // Contract addresses from previous deployment
-    const MARKET_CONTROLLER = "0x459D3eF82e01393386742a560F8C2bf4b4c3964E";
-    const MOCK_ERC20 = "0x63bE3667E50c70EA5aCf6dBcab61eF8d53CbFF91"; // Exact address from deployment
-
-    // Get contract instances
-    const marketController = await ethers.getContractAt("MarketController", MARKET_CONTROLLER);
-    const mockERC20 = await ethers.getContractAt("MockERC20", MOCK_ERC20);
-
-    // Set up market parameters
-    const now = Math.floor(Date.now() / 1000);
-    const eventStartTime = now + (2 * 86400); // Start in 2 days
-    const eventEndTime = now + (30 * 86400); // End in 30 days
-
-    // Set up coordinates (example: Tokyo)
-    const latitude = Math.floor(35.6762 * 1000000); // Convert to 6 decimal places
-    const longitude = Math.floor(139.6503 * 1000000); // East longitude (positive)
-
-    console.log("\nCreating market with parameters:");
-    console.log("Event Start Time:", new Date(eventStartTime * 1000).toLocaleString());
-    console.log("Event End Time:", new Date(eventEndTime * 1000).toLocaleString());
-    console.log("Latitude:", latitude / 1000000);
-    console.log("Longitude:", longitude / 1000000);
-
-    // Create market with gas estimation
-    console.log("\nEstimating gas for market creation...");
-    const gasEstimate = await marketController.createMarket.estimateGas(
-      eventStartTime,
-      eventEndTime,
+    // Create the market
+    const tx = await controller.createMarket(
+      startTime,
+      endTime,
       latitude,
       longitude
     );
-    console.log("Estimated gas:", gasEstimate.toString());
-
-    console.log("\nCreating market...");
-    const tx = await marketController.createMarket(
-      eventStartTime,
-      eventEndTime,
-      latitude,
-      longitude,
-      {
-        gasLimit: Math.floor(Number(gasEstimate) * 1.2) // Add 20% buffer
-      }
-    );
-    console.log("Transaction hash:", tx.hash);
+    console.log("Transaction sent:", tx.hash);
     
-    console.log("Waiting for transaction confirmation...");
+    // Wait for the transaction to be mined
     const receipt = await tx.wait();
-    console.log("Transaction confirmed in block:", receipt.blockNumber);
-
-    // Get market details from events
-    const marketCreatedEvent = receipt?.logs.find(
-      (log: any) => log.fragment?.name === "MarketStateChanged"
-    );
-
-    if (marketCreatedEvent) {
-      const marketId = marketCreatedEvent.args[0];
-      const [riskVault, hedgeVault] = await marketController.getMarketVaults(marketId);
-
-      console.log("\nMarket created successfully!");
-      console.log("Market ID:", marketId);
-      console.log("Risk Vault:", riskVault);
-      console.log("Hedge Vault:", hedgeVault);
-
-      // Approve tokens for both vaults
-      const approveAmount = ethers.parseUnits("1000000", 18); // 1M tokens
-      console.log("\nApproving tokens for vaults...");
+    console.log("Transaction confirmed");
+    
+    // Get the market ID from the event
+    const events = receipt.logs
+      .map(log => {
+        try {
+          return MarketController.interface.parseLog(log);
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    
+    const marketStateEvent = events.find(event => event?.name === "MarketStateChanged");
+    const marketId = marketStateEvent?.args[0];
+    
+    if (marketId) {
+      console.log(`Market created with ID: ${marketId}`);
       
-      const approveRisk = await mockERC20.approve(riskVault, approveAmount);
-      await approveRisk.wait();
-      console.log("Approved tokens for Risk Vault");
+      // Save the market ID to a file for other scripts to use
+      const marketData = { marketId: marketId.toString() };
+      const configDir = path.join(__dirname, "config");
+      fs.writeFileSync(
+        path.join(configDir, "market.json"),
+        JSON.stringify(marketData, null, 2)
+      );
+      console.log("Market ID saved to scripts/config/market.json");
       
-      const approveHedge = await mockERC20.approve(hedgeVault, approveAmount);
-      await approveHedge.wait();
-      console.log("Approved tokens for Hedge Vault");
+      // Skip the market details since it's causing errors
       
-      console.log("\nSetup complete!");
+      console.log("\nIMPORTANT: The market will be ready to lock in 10 seconds.");
+      console.log("After that time, run: npx hardhat run scripts/lockMarket.ts --network coston2");
+      console.log("Then, to liquidate: npx hardhat run scripts/liquidateMarket.ts --network coston2");
+    } else {
+      console.log("Could not determine market ID from transaction");
     }
-  } catch (error: any) {
-    console.error("\nError details:");
-    console.error("Message:", error.message);
-    if (error.data) {
-      console.error("Error data:", error.data);
-    }
-    if (error.transaction) {
-      console.error("Transaction:", error.transaction);
-    }
+    
+  } catch (error) {
+    console.error("Error creating market:", error);
     throw error;
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-}); 
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  }); 

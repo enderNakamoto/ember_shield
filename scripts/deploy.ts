@@ -1,82 +1,75 @@
-import hre, { run, ethers } from "hardhat";
+import { ethers } from "hardhat";
+import fs from "fs";
+import path from "path";
 
-async function deployAndVerify() {
-  const [owner] = await ethers.getSigners();
-  console.log("Deploying contracts with account:", owner.address);
+async function main() {
+  const [deployer] = await ethers.getSigners();
+  console.log("Deploying contracts with the account:", deployer.address);
 
-  // 1. Deploy Mock ERC20
-  console.log("\nDeploying Mock ERC20...");
-  const MockERC20 = await ethers.getContractFactory("MockERC20");
-  const mockERC20 = await (await MockERC20.deploy("Mock USD", "mUSD")).waitForDeployment();
+  // Deploy MockERC20 for testing
+  console.log("Deploying MockERC20...");
+  const MockERC20Factory = await ethers.getContractFactory("MockERC20");
+  const mockERC20 = await MockERC20Factory.deploy("Mock USDC", "mUSDC");
+  await mockERC20.waitForDeployment();
+  const mockERC20Address = await mockERC20.getAddress();
+  console.log("MockERC20 deployed to:", mockERC20Address);
 
-  // Mint tokens to owner
-  const mintAmount = ethers.parseUnits("10000000", 18); // 10M tokens
-  await mockERC20.mint(owner.address, mintAmount);
+  // Deploy MarketController
+  console.log("Deploying MarketController...");
+  const MarketControllerFactory = await ethers.getContractFactory("MarketController");
+  const marketController = await MarketControllerFactory.deploy();
+  await marketController.waitForDeployment();
+  const marketControllerAddress = await marketController.getAddress();
+  console.log("MarketController deployed to:", marketControllerAddress);
 
-  console.log(`Mock ERC20 deployed to: ${await mockERC20.getAddress()}`);
-  console.log(`Minted ${ethers.formatUnits(mintAmount, 18)} tokens to ${owner.address}`);
+  // Deploy MarketFactory with MarketController and MockERC20 addresses
+  console.log("Deploying MarketFactory...");
+  const MarketFactoryFactory = await ethers.getContractFactory("MarketFactory");
+  const marketFactory = await MarketFactoryFactory.deploy(
+    marketControllerAddress,
+    mockERC20Address
+  );
+  await marketFactory.waitForDeployment();
+  const marketFactoryAddress = await marketFactory.getAddress();
+  console.log("MarketFactory deployed to:", marketFactoryAddress);
 
-  // 2. Deploy MarketController
-  console.log("\nDeploying MarketController...");
-  const MarketController = await ethers.getContractFactory("MarketController");
-  const marketController = await (await MarketController.deploy()).waitForDeployment();
-  console.log(`MarketController deployed to: ${await marketController.getAddress()}`);
+  // Set MarketFactory address in MarketController
+  console.log("Setting MarketFactory in MarketController...");
+  const setFactoryTx = await marketController.setMarketFactory(marketFactoryAddress);
+  await setFactoryTx.wait();
+  console.log("MarketFactory set in MarketController");
 
-  // 3. Deploy MarketFactory
-  console.log("\nDeploying MarketFactory...");
-  const MarketFactory = await ethers.getContractFactory("MarketFactory");
-  const marketFactory = await (await MarketFactory.deploy(
-    await marketController.getAddress(),
-    await mockERC20.getAddress()
-  )).waitForDeployment();
-  console.log(`MarketFactory deployed to: ${await marketFactory.getAddress()}`);
+  // Mint some tokens to the deployer for testing
+  const mintAmount = ethers.parseUnits("10000", 18);
+  console.log("Minting tokens to deployer...");
+  const mintTx = await mockERC20.mint(deployer.address, mintAmount);
+  await mintTx.wait();
+  console.log("Tokens minted to deployer");
 
-  // 4. Link Controller to Factory
-  console.log("\nLinking MarketController to MarketFactory...");
-  await marketController.setMarketFactory(await marketFactory.getAddress());
-  console.log("Link complete");
+  // Save deployment addresses to a config file
+  const deploymentData = {
+    mockERC20: mockERC20Address,
+    marketController: marketControllerAddress,
+    marketFactory: marketFactoryAddress
+  };
 
-  // 5. Verify contracts
-  console.log("\nVerifying contracts...");
-  try {
-    // Verify MockERC20
-    await run("verify:verify", {
-      address: await mockERC20.getAddress(),
-      constructorArguments: ["Mock USD", "mUSD"],
-    });
-    console.log("MockERC20 verified");
-
-    // Verify MarketController
-    await run("verify:verify", {
-      address: await marketController.getAddress(),
-      constructorArguments: [],
-    });
-    console.log("MarketController verified");
-
-    // Verify MarketFactory
-    await run("verify:verify", {
-      address: await marketFactory.getAddress(),
-      constructorArguments: [await marketController.getAddress(), await mockERC20.getAddress()],
-    });
-    console.log("MarketFactory verified");
-  } catch (e: any) {
-    console.log("Verification error:", e);
+  const configDir = path.join(__dirname, "config");
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
   }
 
-  // Print summary
-  console.log("\nDeployment Summary:");
-  console.log("===================");
-  console.log(`Network: ${hre.network.name}`);
-  console.log(`MockERC20: ${await mockERC20.getAddress()}`);
-  console.log(`MarketController: ${await marketController.getAddress()}`);
-  console.log(`MarketFactory: ${await marketFactory.getAddress()}`);
-  console.log(`Owner: ${owner.address}`);
-  console.log(`Token Balance: ${await mockERC20.balanceOf(owner.address)}`);
+  fs.writeFileSync(
+    path.join(configDir, "addresses.json"),
+    JSON.stringify(deploymentData, null, 2)
+  );
+  console.log("Deployment addresses saved to scripts/config/addresses.json");
+
+  return deploymentData;
 }
 
-void deployAndVerify().then(() => {
-  process.exit(0);
-}).catch((error) => {
-  console.error(error);
-  process.exit(1);
-}); 
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  }); 
