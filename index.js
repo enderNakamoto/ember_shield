@@ -1,22 +1,3 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { geocodeAddress, checkForWildfires } from './helper.js';
-
-dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
 // Fire detection endpoint
 app.get('/check-fire', async (req, res) => {
   try {
@@ -43,6 +24,27 @@ app.get('/check-fire', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+// Mock fire detection endpoint that always returns fire_detected as 1
+app.get('/check-fire-mock', async (req, res) => {
+  try {
+    const address = req.query.address || "501 Stanyan Street, San Francisco, CA 94117"; // Default to Golden Gate Park
+    
+    // Suppress console logs
+    const originalConsoleLog = console.log;
+    console.log = () => {};
+
+    const coordinates = await geocodeAddress(address);
+    
+    // Restore console log
+    console.log = originalConsoleLog;
+
+    res.json({
+      latitude: Math.round(coordinates.lat * 1000000),
+      longitude: Math.round(coordinates.lon * 1000000),
+      fire_detected: 1  // Always return fire detected
+    });
+  } catch (error) {
+    console.error('Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 }); 
