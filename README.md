@@ -47,7 +47,6 @@ The platform uses Flare's decentralized oracle system to detect fires in specifi
 ![Vault Architecture](images/architecture.png)
 
 
-
 ### Smart Contracts
 
 - **MarketController**: Manages market states and processes oracle data
