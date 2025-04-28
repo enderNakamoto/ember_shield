@@ -7,30 +7,30 @@ https://ember-shield-git-main-enders-projects.vercel.app/
 
 ![alt text](image-1.png)
 
-## What We’re Building
+## What We're Building
 
-We’re building a **decentralized parametric fire insurance** solution on **Flare Network**, leveraging FDC’s JsonAPI attestation type and satellite data from NASA’s FRMS API. Our smart contracts and trusted oracles deliver **instant, transparent, and fair** payouts to communities in extreme wildfire zones—areas where traditional insurers have withdrawn.
+We're building a **decentralized parametric fire insurance** solution on **Flare Network**, leveraging FDC's JsonAPI attestation type and satellite data from NASA's FRMS API. Our smart contracts and trusted oracles deliver **instant, transparent, and fair** payouts to communities in extreme wildfire zones—areas where traditional insurers have withdrawn.
 
-> **Hackathon MVP:** a proof-of-concept to showcase the flexibility and speed of our framework—not a finished product, but a glimpse of what’s coming.
+> **Hackathon MVP:** a proof-of-concept to showcase the flexibility and speed of our framework—not a finished product, but a glimpse of what's coming.
 
 ## Why It Matters
 
-We have family near Paradise, Northern California—the town destroyed by the 2018 fire. Properties in the region are tagged “Extreme Risk” with **9/10 Fire Factor™** and up to **48% wildfire probability** over 30 years.
+We have family near Paradise, Northern California—the town destroyed by the 2018 fire. Properties in the region are tagged "Extreme Risk" with **9/10 Fire Factor™** and up to **48% wildfire probability** over 30 years.
 
-Here’s a map of all active fires in September 2024 across the continental US, during the LA fire events:
+Here's a map of all active fires in September 2024 across the continental US, during the LA fire events:
 
 ![image info](images/fire_map.png)
 
-Traditional insurers are pulling out, premiums are soaring, and claims processes drag on. Communities are left vulnerable and frustrated. The tragic case of **Luigi Mangione**, who turned to violence over a denied claim in a different insurance vertical, highlights the **opaque and adversarial** nature of today’s industry. It’s clear: insurance needs a complete reset.
+Traditional insurers are pulling out, premiums are soaring, and claims processes drag on. Communities are left vulnerable and frustrated. The tragic case of **Luigi Mangione**, who turned to violence over a denied claim in a different insurance vertical, highlights the **opaque and adversarial** nature of today's industry. It's clear: insurance needs a complete reset.
 
 ## How It Works
 
 - **Blockchain Backbone:** Built on Flare Network for low-cost, scalable contracts  
-- **Real-Time Data:** FDC’s JsonAPI pulls wildfire metrics directly from NASA’s FRMS API  
+- **Real-Time Data:** FDC's JsonAPI pulls wildfire metrics directly from NASA's FRMS API  
 - **Trustless Verification:** Satellite-verified data feeds enforce on-chain triggers  
 - **Automated Payouts:** Claims settle the moment damage thresholds are met—no manual steps, no delays  
 
-By combining reliable oracle data with smart-contract automation, FireBastion turns a slow, opaque claims process into one that’s **data-driven and instant**—bringing fairness back to wildfire insurance.
+By combining reliable oracle data with smart-contract automation, FireBastion turns a slow, opaque claims process into one that's **data-driven and instant**—bringing fairness back to wildfire insurance.
 
 
 ## Architecture
@@ -51,6 +51,36 @@ The platform uses Flare's decentralized oracle system to detect fires in specifi
 - **MarketFactory**: Creates market vaults
 - **RiskVault**: ERC4626 tokenized vault for risk-taking participants
 - **HedgeVault**: ERC4626 tokenized vault for hedging participants
+
+### Market States
+
+The market contract follows a strict state machine with the following states and transitions:
+
+| State | Description | Deposits | Withdrawals | Trigger Conditions | Asset Behavior |
+|-------|-------------|----------|-------------|-------------------|----------------|
+| `NotSet` | Initial null state before market creation | ❌ | ❌ | Default state | No assets |
+| `Open` | Active market accepting positions | ✅ | ✅ | `createMarket()` called | Users can deposit to Risk/Hedge vaults |
+| `Locked` | Market frozen during event window | ❌ | ❌ | Event start time reached | Assets locked in respective vaults |
+| `Liquidated` | Fire event occurred | ❌ | ✅ | Fire detected via oracle | All assets move to Hedge vault |
+| `Matured` | Event ended without fire | ❌ | ✅ | Event end time reached, no fire | All assets move to Risk vault |
+
+#### Key Points
+
+- **One-way Transitions**: States progress forward only (`Open` → `Locked` → `Matured/Liquidated`)
+- **Terminal States**: Both `Matured` and `Liquidated` are final states
+- **Oracle Dependency**: Transitions from `Locked` to `Liquidated` require valid oracle proof
+- **Time Windows**: 
+  - `Open` → `Locked`: At event start time
+  - `Locked` → `Matured`: At event end time (if no fire)
+  - `Locked` → `Liquidated`: During event window if fire detected
+
+#### Asset Flow Summary
+```
+Open:       User ⟷ Risk/Hedge Vaults
+Locked:     No movement
+Liquidated: Risk Vault → Hedge Vault
+Matured:    Hedge Vault → Risk Vault
+```
 
 ### Fire Detection API
 
@@ -264,14 +294,6 @@ We've deployed and tested our contracts on the Coston2 network, using a simplifi
 npm install
 ```
 
-### Local Testing
-
-We provide a complete workflow test script that deploys contracts, creates markets, and simulates fire detection:
-
-```bash
-npx hardhat run scripts/testWorkflow.ts --network localhost
-```
-
 ### Deployment
 
 Deploy to Coston2 testnet:
@@ -279,21 +301,25 @@ Deploy to Coston2 testnet:
 ```bash
 npx hardhat run scripts/deploy.ts --network coston2
 ```
+ 
+Create a market:
 
-## Testing Oracle Integration
-
-1. Create a market:
 ```bash
 npx hardhat run scripts/createMarket.ts --network coston2
 ```
 
-2. Test with mock fire data (always returns fire detected):
+Lock Market 
+
+```bash
+npx hardhat run scripts/lockMarket.ts --network coston2
+```
+
+Test with mock fire data (always returns fire detected):
 ```bash
 npx hardhat run scripts/processOracleMock.ts --network coston2
 ```
 
-For more detailed instructions, see [scripts/README.md](scripts/README.md).
-
+For more detailed instructions, see [scripts/README.md](scripts/
 
 ## Testing with Real FDC Attestation
 
@@ -310,7 +336,7 @@ Unfortunately I was not able to get it to work in time
 
 ## Is this sustainable?
 
-Some might ask: **“Why are traditional insurers not sustainable in high-fire-risk areas, while we are?”** Traditional carriers often have **high overhead costs** and rely on **middlemen**, making it unprofitable to operate where fire probabilities are elevated. Our **blockchain-based** model, by contrast, is **open-source** and largely **automated**, drastically reducing administrative expenses and conflict resolution overhead.
+Some might ask: **"Why are traditional insurers not sustainable in high-fire-risk areas, while we are?"** Traditional carriers often have **high overhead costs** and rely on **middlemen**, making it unprofitable to operate where fire probabilities are elevated. Our **blockchain-based** model, by contrast, is **open-source** and largely **automated**, drastically reducing administrative expenses and conflict resolution overhead.
 
 To illustrate, we ran a **Monte Carlo simulation** with:
 
