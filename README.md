@@ -33,7 +33,7 @@ Traditional insurers are pulling out, premiums are soaring, and claims processes
 - **Trustless Verification:** Satellite-verified data feeds enforce on-chain triggers  
 - **Automated Payouts:** Claims settle the moment damage thresholds are met—no manual steps, no delays  
 
-By combining reliable oracle data with smart-contract automation, FireBastion turns a slow, opaque claims process into one that's **data-driven and instant**—bringing fairness back to wildfire insurance.
+By combining reliable oracle data with smart-contract automation, Ember Shield turns a slow, opaque claims process into one that's **data-driven and instant**—bringing fairness back to wildfire insurance.
 
 
 ## Architecture
