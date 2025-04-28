@@ -78,7 +78,7 @@ export const HowItWorks = () => {
           <div className="aspect-video">
             <iframe
               className="w-full h-full"
-              src="https://www.youtube.com/embed/0cdRLRPOX30"
+              src="https://www.youtube.com/embed/EcJ1rvtiQVA"
               title="Wildfire Insurance Explainer"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
