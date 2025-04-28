@@ -14,7 +14,7 @@ We're building a **decentralized parametric fire insurance** solution on **Flare
 > **Hackathon MVP:** a proof-of-concept to showcase the flexibility and speed of our framework—not a finished product, but a glimpse of what's coming. Alot of the functionalities are a WIP
 
 
-> Note: I couldn’t get test USDC on Flare, so I deployed a mock ERC20 for testing; the protocol works with any stablecoin, using USDC only as a placeholder.
+> Note: I couldn’t get test USDC on Flare, so I deployed a mock ERC20 for testing; the protocol is inteded to work with any stablecoin, using USDC in UI only as a placeholder.
 
 ## Why It Matters
 
