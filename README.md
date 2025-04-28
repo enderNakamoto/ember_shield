@@ -85,6 +85,19 @@ The system uses Flare's FDC (Flare Data Contract) to fetch and validate external
 3. Smart contracts validate these proofs and trigger liquidation if a fire is detected
 
 #### Controller Contract 
+
+**DTO**
+
+```
+// All floats come multiplied by 10^6
+struct DataTransportObject {
+    int256 latitude;    // Multiplied by 10^6
+    int256 longitude;   // Multiplied by 10^6
+    uint256 fire;      // 1 or 0
+}
+```
+
+**Process FDC Attestation**
 ```
  /**
      * @notice Processes oracle data and triggers liquidation or maturation if needed
