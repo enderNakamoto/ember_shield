@@ -67,30 +67,6 @@ We've deployed and tested our contracts on the Coston2 network, using a simplifi
    - Attempted to process fire detection data with mock proof
    - The contract requires properly formatted data from Flare's actual FDC
 
-### Testing Notes
-
-Our tests confirm that the contract infrastructure works correctly through the following steps:
-
-1. **Deployment**: Successfully deployed all contracts with correct relationships
-2. **Market Creation**: Created markets with configurable parameters
-3. **Market Locking**: Successfully changed market state from Open to Locked
-4. **Liquidation Testing**: Partial success - contract validates that market is in the correct state
-
-For full integration with Flare's FDC system, we need:
-
-1. **Verifier Service Setup**:
-   - Environment variables for `JQ_VERIFIER_URL_TESTNET`, `JQ_VERIFIER_API_KEY_TESTNET`
-   - Access to Flare's verifier server at `https://jq-verifier-test.flare.rocks/JsonApi/prepareRequest`
-
-2. **Data Formatting**:
-   - Correct JQ filter to process API responses
-   - Proper ABI encoding of the DataTransportObject
-   - Valid signature for the encoded data struct
-
-3. **Merkle Proof Construction**:
-   - Creating valid merkle proofs that can be verified by the smart contract
-   - Testing with the Flare Data Layer API at `COSTON2_DA_LAYER_URL`
-
 ## Development
 
 ### Prerequisites
@@ -206,7 +182,3 @@ Our test suite covers three main areas:
    - Withdrawal restrictions during the Locked state
 
 The test suite ensures that all contract functions behave as expected across different market states and conditions, providing confidence in the security and reliability of the Ember Shield protocol.
-
-## License
-
-MIT
