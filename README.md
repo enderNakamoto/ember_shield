@@ -272,8 +272,8 @@ We've deployed and tested our contracts on the Coston2 network, using a simplifi
    - Parameters:
      - Start time: 10 seconds after creation
      - End time: 5 days after creation
-     - Latitude: 35.6762° (Tokyo)
-     - Longitude: 139.6503° (Tokyo)
+     - Latitude: 37.7749° (San Francisco)
+     - Longitude: 122.4194° (San Francisco)
 
 3. **Market Locking**
    - Successfully locked market ID: 3
