@@ -24,8 +24,10 @@ npm run dev
 
 ## API Endpoints
 
+The API is deployed and available at: `https://flarefire-production.up.railway.app`
+
 ### GET /health
-Health check endpoint.
+Health check endpoint to verify the API is running.
 
 Response:
 ```json
@@ -35,7 +37,7 @@ Response:
 ```
 
 ### GET /check-fire
-Check for fires at a location.
+Check for fires at a location using real NASA FIRMS data.
 
 Query Parameters:
 - `address` (optional): The address to check. Defaults to Golden Gate Park if not provided.
@@ -48,17 +50,39 @@ GET /check-fire?address=123 Main St, San Francisco, CA
 Response:
 ```json
 {
-  "latitude": 37.7694208,
-  "longitude": -122.4539027,
-  "fire_detected": 0
+  "latitude": 37769420,    // Latitude * 1,000,000
+  "longitude": -122453902, // Longitude * 1,000,000
+  "fire_detected": 0       // 0 = no fire, 1 = fire detected
+}
+```
+
+### GET /check-fire-mock
+Mock endpoint that always returns the same coordinates with fire detected. Useful for testing and development.
+
+Response:
+```json
+{
+  "latitude": 37772760,    // Fixed latitude for testing
+  "longitude": -122454362, // Fixed longitude for testing
+  "fire_detected": 1       // Always returns fire detected
 }
 ```
 
 ## Railway Deployment
 
+The API is currently deployed on Railway at:
+```
+https://flarefire-production.up.railway.app
+```
+
+To deploy your own instance:
 1. Create a new project on [Railway](https://railway.app)
 2. Connect your GitHub repository
 3. Add the required environment variables in Railway dashboard
-4. Deploy!
+4. Deploy using Railway CLI:
+```bash
+cd oracle_api
+railway up
+```
 
 The API will be automatically deployed when you push changes to your repository.
