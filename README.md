@@ -11,7 +11,10 @@ https://ember-shield-git-main-enders-projects.vercel.app/
 
 We're building a **decentralized parametric fire insurance** solution on **Flare Network**, leveraging FDC's JsonAPI attestation type and satellite data from NASA's FRMS API. Our smart contracts and trusted oracles deliver **instant, transparent, and fair** payouts to communities in extreme wildfire zones—areas where traditional insurers have withdrawn.
 
-> **Hackathon MVP:** a proof-of-concept to showcase the flexibility and speed of our framework—not a finished product, but a glimpse of what's coming.
+> **Hackathon MVP:** a proof-of-concept to showcase the flexibility and speed of our framework—not a finished product, but a glimpse of what's coming. Alot of the functionalities are a WIP
+
+
+> Note: I couldn’t get test USDC on Flare, so I deployed a mock ERC20 for testing; the protocol works with any stablecoin, using USDC only as a placeholder.
 
 ## Why It Matters
 
