@@ -512,9 +512,9 @@ To illustrate, we ran a **Monte Carlo simulation** with:
 - **1,000 properties**
 - **\$3,000 annual premium** each
 - **\$150,000 claim payout**
-- Fire **probability** drawn randomly between **0.3%** and **1.7%**
+- Fire **probability** drawn randomly between **0.3%** and **1.7%** yearly
 
-Through tens of thousands of single-year simulations, the **mean yield**—i.e., net profit divided by total premiums—averages around **40–50%**. This indicates reliable profitability despite annual fluctuations in fire probability.
+Through tens of thousands of simulations, the **mean yield**—i.e., net profit divided by total premiums—averages around **40–50%**. This indicates reliable profitability despite annual fluctuations in fire probability.
 
 However, there is notable **volatility**:
 
