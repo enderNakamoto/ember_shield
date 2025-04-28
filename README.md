@@ -35,6 +35,131 @@ The system uses Flare's FDC (Flare Data Contract) to fetch and validate external
 2. Oracle validators verify the data and provide proofs
 3. Smart contracts validate these proofs and trigger liquidation if a fire is detected
 
+## Flare Data Contract (FDC) Integration
+
+Ember Shield leverages Flare's Data Contract system to provide secure and reliable fire detection data to the insurance protocol. Below is a detailed explanation of how this integration works:
+
+### Architecture Overview
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│                 │    │                 │    │                 │
+│  Fire Detection │    │ Flare Verifier  │    │ Ember Shield   │
+│  API Server     │◄───┤ Service         │◄───┤ Contracts      │
+│                 │    │                 │    │                 │
+└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
+         │                      │                      │
+         ▼                      ▼                      ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│                 │    │                 │    │                 │
+│  NASA FIRMS     │    │ Flare FDC       │    │ Market          │
+│  Fire Data      │    │ Smart Contracts │    │ Liquidation     │
+│                 │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### FDC Attestation Flow
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
+│          │     │          │     │          │     │          │     │          │
+│ Insurance│     │ Market   │     │  FDC     │     │  API     │     │  NASA    │
+│ Contract │     │Controller│     │ Contract │     │ Server   │     │  FIRMS   │
+│          │     │          │     │          │     │          │     │          │
+└────┬─────┘     └────┬─────┘     └────┬─────┘     └────┬─────┘     └────┬─────┘
+     │                │                │                │                │
+     │   1. Request   │                │                │                │
+     │   liquidation  │                │                │                │
+     │────────────────>                │                │                │
+     │                │                │                │                │
+     │                │  2. Request    │                │                │
+     │                │  attestation   │                │                │
+     │                │───────────────>│                │                │
+     │                │                │                │                │
+     │                │                │ 3. Query data  │                │
+     │                │                │───────────────>│                │
+     │                │                │                │                │
+     │                │                │                │ 4. Fetch fire  │
+     │                │                │                │    data        │
+     │                │                │                │───────────────>│
+     │                │                │                │                │
+     │                │                │                │ 5. Return fire │
+     │                │                │                │    data        │
+     │                │                │                │<───────────────│
+     │                │                │                │                │
+     │                │                │ 6. Format &    │                │
+     │                │                │    return data │                │
+     │                │                │<───────────────│                │
+     │                │                │                │                │
+     │                │ 7. Generate    │                │                │
+     │                │ Merkle proof   │                │                │
+     │                │<───────────────│                │                │
+     │                │                │                │                │
+     │ 8. Process data│                │                │                │
+     │ & liquidate    │                │                │                │
+     │<───────────────│                │                │                │
+     │                │                │                │                │
+```
+
+### Detailed Process
+
+1. **Data Request Initiation**:
+   - The `MarketController` contract initiates a data request to the Flare Data Contract (FDC)
+   - The request includes location coordinates (latitude/longitude) and desired timestamp
+
+2. **FDC Attestation Process**:
+   - The FDC system forwards the request to multiple verifier nodes
+   - Each verifier independently queries our Fire Detection API
+   - Verifiers validate the data returned from the API
+   - Once consensus is reached, a Merkle proof is generated
+
+3. **Data Format**:
+   ```json
+   {
+     "sources": ["0x1234...5678"],
+     "requestBody": {
+       "url": "https://flarefire-production.up.railway.app/check-fire",
+       "abi_encoded_data": "0x000000000000000000000000000000000000000000000000000021fc51eb8500000000000000000000000000000000000000000000000000000021a390a3d60000"
+     },
+     "responseBody": {
+       "status_code": 200,
+       "headers": "",
+       "abi_encoded_data": "0x000000000000000000000000000000000000000000000000000021fc51eb8500000000000000000000000000000000000000000000000000000021a390a3d600000000000000000000000000000000000000000000000000000000000000000001"
+     },
+     "merkleProof": ["0xabcd...1234", "0x5678...9012"]
+   }
+   ```
+
+4. **Verification & Liquidation**:
+   - The `MarketController.processOracleData()` function receives the attested data
+   - It verifies the Merkle proof against the FDC's state root
+   - The data is decoded to extract latitude, longitude, and fire detection status
+   - If a fire is detected at the specified coordinates, the market is liquidated
+   - Funds are transferred from Risk Vault to Hedge Vault
+
+### FDC Environment Requirements
+
+To fully integrate with Flare's FDC system, the following components must be configured:
+
+1. **Environment Variables**:
+   ```
+   FLARE_FDC_ADDRESS=0x1234...5678 # The address of the FDC contract
+   FLARE_VERIFIER_API_KEY=your-api-key # API key for the verifier service
+   ```
+
+2. **Verifier Registration**:
+   - The Fire Detection API must be registered with Flare's verifier network
+   - API endpoints must be whitelisted in the FDC registry
+
+3. **FDC Provider Configuration**:
+   ```typescript
+   const fdcClient = new FdcClient({
+     providerUrl: process.env.FLARE_PROVIDER_URL,
+     fdcContractAddress: process.env.FLARE_FDC_ADDRESS,
+     privateKey: process.env.PRIVATE_KEY
+   });
+   ```
+
 ## Workflow Without FDC Attestation
 
 We've deployed and tested our contracts on the Coston2 network, using a simplified workflow that bypasses the actual FDC attestation process for testing purposes.
